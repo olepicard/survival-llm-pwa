@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Assistant IA de survie et guides d'urgence hors-ligne pour Android et PC.">
+  
+  <!-- Apple WebApp -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Survival LLM">
+
+  <title>Survival LLM • PWA Autonome</title>
+
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="app" class="app-layout">
+    <!-- Top Bar -->
+    <header class="app-header">
+      <div class="header-brand">
+        <img src="icons/icon.svg" alt="Logo" class="app-logo">
+        <div class="header-titles">
+          <h1>Survival LLM</h1>
+          <div class="header-sub">
+            <span id="status-badge" class="status-badge">Initialisation...</span>
+          </div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <label class="rag-switch" title="Activer la recherche dans les 670 guides hors-ligne">
+          <input type="checkbox" id="toggle-rag-checkbox" checked>
+          <span class="rag-slider"></span>
+          <span class="rag-label">RAG Local</span>
+        </label>
+        <button id="btn-install-pwa" class="btn btn-sm btn-install" style="display: none;">
+          📲 Installer l'App
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Tabs -->
+    <main class="app-main">
+      <!-- TAB 1: CHAT IA -->
+      <section id="tab-chat" class="tab-view active">
+        <div id="chat-messages" class="chat-messages-container">
+          <div class="chat-welcome">
+            <div class="welcome-icon">🛡️</div>
+            <h3>Assistant de Survie & Secourisme</h3>
+            <p>Assistant d'urgence connecté à votre moteur LLM local (Ollama ou compatible OpenAI sur S25 Ultra / PC).</p>
+            <div class="quick-prompts">
+              <button class="btn-prompt-chip" data-q="Comment purifier de l'eau suspecte en milieu sauvage sans matériel ?">💧 Purification d'eau d'urgence</button>
+              <button class="btn-prompt-chip" data-q="Quelles sont les étapes pour poser un garrot tourniquet sur une hémorragie ?">🩸 Garrot & Hémorragie grave</button>
+              <button class="btn-prompt-chip" data-q="Comment allumer un feu sous une pluie battante avec du bois trempé ?">🔥 Feu par temps de pluie</button>
+              <button class="btn-prompt-chip" data-q="Que faire en cas d'accident avec suspicion de fracture du fémur ?">🦴 Fracture & Immobilisation</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <form id="chat-form" class="chat-form">
+            <button type="button" id="btn-clear-chat" class="btn-icon" title="Effacer l'historique">
+              🗑️
+            </button>
+            <textarea
+              id="chat-input"
+              rows="1"
+              placeholder="Posez votre question de survie ou d'urgence..."
+              required
+            ></textarea>
+            <button type="submit" id="btn-send-chat" class="btn-send" title="Envoyer">
+              ➤
+            </button>
+            <button type="button" id="btn-stop-chat" class="btn-stop" style="display: none;" title="Arrêter">
+              ⏹️
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- TAB 2: SOS URGENCES -->
+      <section id="tab-sos" class="tab-view">
+        <div id="sos-container" class="sos-container-inner"></div>
+      </section>
+
+      <!-- TAB 3: GUIDES HORS-LIGNE -->
+      <section id="tab-guides" class="tab-view">
+        <div class="guides-toolbar">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="search" id="guides-search-input" placeholder="Rechercher dans 670 guides (garrot, eau, radio, abri...)" />
+          </div>
+          <select id="guides-theme-select" class="theme-select">
+            <option value="all">Tous les thèmes</option>
+          </select>
+        </div>
+        <div id="guides-list-container" class="guides-list"></div>
+      </section>
+
+      <!-- TAB 4: RÉGLAGES & CONNEXION LLM -->
+      <section id="tab-settings" class="tab-view">
+        <div class="settings-container">
+          <h2>Configuration LLM Local</h2>
+          <p class="settings-desc">
+            Connectez votre PWA à votre serveur d'intelligence artificielle locale (aucun abonnement cloud requis).
+          </p>
+
+          <!-- Presets -->
+          <div class="settings-group">
+            <label class="group-title">⚡ Préréglages Rapides</label>
+            <div class="presets-grid">
+              <button type="button" class="btn-preset" data-url="http://192.168.1.50:11434" data-type="ollama">
+                💻 Ollama PC (WiFi LAN)
+              </button>
+              <button type="button" class="btn-preset" data-url="http://127.0.0.1:11434" data-type="ollama">
+                📱 Ollama Local (Termux / PC)
+              </button>
+              <button type="button" class="btn-preset" data-url="http://127.0.0.1:8080" data-type="openai">
+                🤖 Edge Gallery / PocketPal (Port 8080)
+              </button>
+              <button type="button" class="btn-preset" data-url="http://127.0.0.1:5000" data-type="openai">
+                ⚡ LocalAI / MLC (Port 5000)
+              </button>
+            </div>
+          </div>
+
+          <!-- Connection Form -->
+          <div class="settings-group">
+            <label for="setting-endpoint" class="group-title">Adresse API du Serveur LLM</label>
+            <input type="url" id="setting-endpoint" placeholder="http://127.0.0.1:11434 ou http://192.168.1.X:11434" required />
+            <small class="field-hint">Pour un S25 Ultra interrogeant votre PC Windows, entrez l'adresse IP locale de votre PC.</small>
+          </div>
+
+          <div class="settings-group">
+            <label for="setting-api-type" class="group-title">Protocole API</label>
+            <select id="setting-api-type">
+              <option value="ollama">Ollama (/api/chat, /api/tags)</option>
+              <option value="openai">OpenAI Compatible (/v1/chat/completions, /v1/models)</option>
+            </select>
+          </div>
+
+          <div class="settings-group">
+            <div class="field-split">
+              <button type="button" id="btn-test-connection" class="btn btn-secondary">
+                🔄 Tester la connexion & lister les modèles
+              </button>
+            </div>
+            <div id="test-conn-result" class="test-result-box"></div>
+          </div>
+
+          <div class="settings-group">
+            <label for="setting-model" class="group-title">Modèle LLM</label>
+            <select id="setting-model">
+              <option value="gemma4:26B">gemma4:26B (Recommandé mobile)</option>
+              <option value="qwen2.5:3b">qwen2.5:3b (Excellente précision)</option>
+              <option value="mistral:7b">mistral:7b (Complet)</option>
+              <option value="phi3:mini">phi3:mini (Ultra léger)</option>
+            </select>
+          </div>
+
+          <div class="settings-group">
+            <label for="setting-temp" class="group-title">
+              Température : <span id="setting-temp-val">0.7</span>
+            </label>
+            <input type="range" id="setting-temp" min="0.1" max="1.5" step="0.1" value="0.7">
+            <small class="field-hint">0.2 - 0.5 : Réponses très factuelles et strictes (recommandé survie/médical). 0.7 : Équilibré.</small>
+          </div>
+
+          <div class="settings-group">
+            <label for="setting-system-prompt" class="group-title">Prompt Système de Survie</label>
+            <textarea id="setting-system-prompt" rows="5"></textarea>
+          </div>
+
+          <div class="settings-actions">
+            <button type="button" id="btn-save-settings" class="btn btn-primary btn-block">
+              💾 Enregistrer les Réglages
+            </button>
+          </div>
+
+          <!-- Documentation & CORS Help -->
+          <div class="help-box">
+            <h3>📖 Guide de Configuration & Dépannage</h3>
+            <h4>1. Autoriser le smartphone à joindre Ollama sur votre PC Windows :</h4>
+            <p>Par défaut, Ollama écoute uniquement sur <code>127.0.0.1</code>. Pour l'ouvrir à votre Galaxy S25 Ultra sur le même réseau WiFi, lancez une invite de commandes sur le PC :</p>
+            <pre>set OLLAMA_HOST=0.0.0.0<br/>set OLLAMA_ORIGINS=*<br/>ollama serve</pre>
+
+            <h4>2. Exécuter Ollama directement sur votre Samsung Galaxy S25 Ultra :</h4>
+            <p>Avec le processeur Snapdragon 8 Elite du S25 Ultra, vous pouvez faire tourner des modèles 3B à plus de 25 tokens/s en local dans <strong>Termux</strong> :</p>
+            <pre>pkg install ollama<br/>ollama serve &<br/>ollama run llama3.2:3b</pre>
+            <p>L'adresse dans la PWA sera alors directement <code>http://127.0.0.1:11434</code> !</p>
+
+            <h4>3. Edge Gallery / PocketPal AI sur Android :</h4>
+            <p>Dans l'application Edge Gallery ou PocketPal, cochez l'option <em>« Start Local API Server »</em>. Elle fournira une API compatible OpenAI sur le port <code>8080</code>.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="app-bottom-nav">
+      <button class="nav-tab-btn active" data-tab="chat">
+        <span class="nav-icon">💬</span>
+        <span class="nav-label">Chat IA</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="sos">
+        <span class="nav-icon">🚨</span>
+        <span class="nav-label">SOS Réflexes</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="guides">
+        <span class="nav-icon">📚</span>
+        <span class="nav-label">Guides (670)</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="settings">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">Réglages</span>
+      </button>
+    </nav>
+
+    <!-- Modal: Emergency Protocol Details -->
+    <dialog id="protocol-modal" class="app-dialog">
+      <div class="dialog-header">
+        <h3 id="modal-proto-title">Protocole</h3>
+        <button class="btn-close-dialog" onclick="document.getElementById('protocol-modal').close()">✕</button>
+      </div>
+      <div id="modal-proto-body" class="dialog-body"></div>
+    </dialog>
+
+    <!-- Modal: Guide Full Reader -->
+    <dialog id="guide-modal" class="app-dialog dialog-fullscreen">
+      <div class="dialog-header">
+        <h3 id="guide-modal-title">Guide de survie</h3>
+        <button class="btn-close-dialog" onclick="document.getElementById('guide-modal').close()">✕</button>
+      </div>
+      <div id="guide-modal-body" class="dialog-body"></div>
+    </dialog>
+
+    <!-- Save Notification Toast -->
+    <div id="settings-toast" class="toast">Réglages enregistrés avec succès !</div>
+  </div>
+
+  <!-- Entry Script -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

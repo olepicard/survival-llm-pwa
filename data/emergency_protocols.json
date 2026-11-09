@@ -1,0 +1,159 @@
+{
+  "protocols": [
+    {
+      "id": "tourniquet",
+      "title": "Garrot Tourniquet & Hémorragie Grave",
+      "category": "medical",
+      "icon": "🩸",
+      "summary": "Hémorragie externe massive mettant la vie en jeu en moins de 3 minutes (artère fémorale, brachiale).",
+      "steps": [
+        "Appliquer immédiatement une compression directe forte avec la paume ou un pansement compressif si le garrot n'est pas à portée immédiate.",
+        "Placer le garrot 5 à 7 cm AU-DESSUS de la plaie (entre la plaie et le cœur). Ne JAMAIS le placer directement sur une articulation (genou, coude).",
+        "Serrer la bande au maximum avant de commencer à tourner le cabestan (barre de serrage).",
+        "Tourner le cabestan jusqu'à l'arrêt COMPLET du saignement et la disparition du pouls distal.",
+        "Bloquer fermement le cabestan dans son clip de sécurité.",
+        "Inscrire l'HEURE EXACTE de pose au feutre indélébile directement sur le garrot ou sur le front de la victime (ex: T 14:32).",
+        "CRUCIAL : Ne JAMAIS relâcher, desserrer ou retirer un garrot posé sans surveillance médicale spécialisée."
+      ],
+      "warnings": [
+        "Un garrot mal serré majore le saignement veineux sans arrêter le flux artériel.",
+        "La douleur est normale et intense : ne pas desserrer pour autant."
+      ]
+    },
+    {
+      "id": "cpr",
+      "title": "Arrêt Cardiaque & Réanimation (RCR)",
+      "category": "medical",
+      "icon": "❤️‍🩹",
+      "summary": "Victime inconsciente qui ne respire pas ou effectue des gasps inefficaces.",
+      "steps": [
+        "Vérifier la sécurité de la zone (pas de risque électrique, toxique, effondrement).",
+        "Vérifier la conscience : secouer doucement les épaules, crier « M'entendez-vous ? »",
+        "Libérer les voies aériennes (bascule prudente de la tête en arrière, élévation du menton) et vérifier la respiration pendant 10 secondes maximum.",
+        "Alerter les secours d'urgence (15 / 112 / 911) et demander un DAE (défibrillateur).",
+        "Positionner les mains l'une sur l'autre au centre de la poitrine (bas du sternum). Bras tendus, épaules à l'aplomb.",
+        "Compresser vigoureusement à un rythme de 100 à 120 battements par minute (rythme de Stayin' Alive) sur une profondeur de 5 à 6 cm.",
+        "Si entraîné : alterner 30 compressions et 2 insufflations courtes. Si non entraîné ou seul sans protection : compressions thoraciques continues sans interruption.",
+        "Dès l'arrivée du DAE : l'allumer immédiatement et suivre scrupuleusement les consignes vocales."
+      ],
+      "warnings": [
+        "Ne pas interrompre les compressions plus de 5 secondes.",
+        "Chaque minute sans massage réduit la survie de 10%."
+      ]
+    },
+    {
+      "id": "choking",
+      "title": "Étouffement & Manœuvre de Heimlich",
+      "category": "medical",
+      "icon": "🫁",
+      "summary": "Obstruction brutale et totale des voies aériennes par un corps étranger (la victime ne peut plus parler, tousser ni respirer).",
+      "steps": [
+        "Si la victime tousse vigoureusement : NE RIEN FAIRE d'autre qu'encourager la toux. Ne pas taper dans le dos.",
+        "Si obstruction totale (la victime porte les mains à son cou, regard paniqué, silence complet) : pencher la victime vers l'avant.",
+        "Donner 5 claques vigoureuses entre les omoplates avec le plat de la paume ouverte.",
+        "Si échec : réaliser 5 compressions abdominales (Manœuvre de Heimlich).",
+        "Position Heimlich : se placer derrière la victime, passer les bras sous ses aisselles, fermer un poing entre le nombril et le sternum, saisir le poing avec l'autre main et tirer sèchement vers l'arrière et vers le haut (mouvement en J).",
+        "Alterner 5 claques dans le dos et 5 compressions abdominales jusqu'au rejet du corps étranger.",
+        "Si la victime perd connaissance : l'allonger au sol et débuter immédiatement la RCR (massage cardiaque)."
+      ],
+      "warnings": [
+        "Femme enceinte ou personne obèse : remplacer les compressions abdominales par des compressions thoraciques (au milieu du sternum)."
+      ]
+    },
+    {
+      "id": "water_purification",
+      "title": "Purification d'Urgence de l'Eau",
+      "category": "food",
+      "icon": "💧",
+      "summary": "Transformation d'eau douteuse ou brute en eau potable sûre.",
+      "steps": [
+        "Clarification préalable : si l'eau est trouble, la décanter puis la filtrer à travers un tissu propre, filtre à café ou filtre à sable/charbon.",
+        "MÉTHODE 1 (Ébullition - Référence absolue) : Porter l'eau à gros bouillons pendant 1 minute complète (3 minutes si altitude > 2000 m). Tue bactéries, virus, parasites (Giardia, Cryptosporidium).",
+        "MÉTHODE 2 (Désinfection chimique par Eau de Javel non parfumée 2.6% à 5%) : 2 à 4 gouttes par litre d'eau claire (4 à 8 gouttes si eau légèrement trouble). Bien mélanger et laisser agir OBLIGATOIREMENT 30 minutes avant de boire.",
+        "MÉTHODE 3 (Comprimés Aquatabs / Micropur) : Respecter la dose et le temps de contact (30 min pour bactéries/virus, 2h pour certains kystes).",
+        "MÉTHODE 4 (Solaire SODIS) : Dans une bouteille PET transparente propre, exposer 6 heures en plein soleil (ou 2 jours par temps couvert)."
+      ],
+      "warnings": [
+        "L'ébullition et le chlore ne retirent PAS les polluants chimiques, métaux lourds ou hydrocarbures.",
+        "Ne jamais boire d'eau de mer ou d'urine : cela aggrave l'insuffisance rénale et la déshydratation."
+      ]
+    },
+    {
+      "id": "hypothermia",
+      "title": "Hypothermie & Grand Froid",
+      "category": "survival",
+      "icon": "❄️",
+      "summary": "Chute de la température corporelle interne sous 35°C.",
+      "steps": [
+        "Mettre immédiatement la victime à l'abri du vent, de la pluie et de la neige.",
+        "Isoler le corps du sol froid (matelas mousse, branches, sacs à dos, cartons). Le sol absorbe la chaleur 20 fois plus vite que l'air.",
+        "Retirer délicatement les vêtements mouillés et envelopper la victime dans des couches sèches et une couverture de survie (face dorée vers l'extérieur).",
+        "Réchauffer le TRONC en priorité (torse, aisselle, aine, cou) par contact corporel ou bouillottes tièdes emballées dans un tissu.",
+        "Si la victime est consciente et alerte : donner des liquides tièdes sucrés (pas de thé fort ni de café).",
+        "Manipuler la victime avec une EXTRÊME DOUCEUR : des mouvements brusques peuvent déclencher une fibrillation ventriculaire mortelle."
+      ],
+      "warnings": [
+        "JAMAIS d'alcool : vasodilatateur qui accélère le refroidissement interne.",
+        "JAMAIS frictionner ou masser les membres gelés (risque de gangrène et de collapsus de retour veineux froid)."
+      ]
+    },
+    {
+      "id": "fire",
+      "title": "Allumage de Feu d'Urgence",
+      "category": "survival",
+      "icon": "🔥",
+      "summary": "Création d'un foyer de survie pour chaleur, signalisation, stérilisation.",
+      "steps": [
+        "Préparer le lit du foyer : isoler du sol humide avec une plate-forme d'écorces ou de bois mort sec.",
+        "Collecter 3 calibres de combustible en abondance AVANT d'allumer :",
+        "  1. Amadou ultra-sec (coton vaseliné, écorce de bouleau râpée, peluches sèches, fibres de corde effilochées).",
+        "  2. Petit bois (brindilles fines de la taille d'un cure-dent puis d'un crayon).",
+        "  3. Bois moyen et bûches (taille d'un pouce puis d'un bras).",
+        "Construire un tipi ou une structure en appentis autour du nid d'amadou en laissant une entrée pour l'air.",
+        "Allumage au ferrocerium / tige allume-feu : gratter fermement la tige vers l'amadou en gardant le grattoir au plus près (5 cm).",
+        "Dès la braise apparue : souffler avec une brise douce et continue, puis nourrir progressivement sans étouffer la flamme."
+      ],
+      "warnings": [
+        "Ne pas utiliser de pierres de rivière poreuses ou humides pour entourer le foyer (elles peuvent exploser sous la vapeur d'eau)."
+      ]
+    },
+    {
+      "id": "burns",
+      "title": "Brûlures Thermiques & Chimiques",
+      "category": "medical",
+      "icon": "🩹",
+      "summary": "Traitement immédiat des brûlures pour stopper l'extension tissulaire.",
+      "steps": [
+        "Refroidir IMMÉDIATEMENT à l'eau tempérée (15-20°C) pendant au moins 15 minutes, à faible débit (ne pas utiliser d'eau glacée ni de glaçons).",
+        "Retirer sans attendre les bagues, montres et vêtements amples entourant la zone avant l'apparition de l'œdème.",
+        "Ne JAMAIS arracher les tissus ou vêtements qui ont fondu ou collé à la chair.",
+        "Ne JAMAIS percer les cloques (phlyctènes) : la peau intacte est le meilleur pansement stérile antibactérien.",
+        "Couvrir la zone avec un linge propre, stérile ou un film alimentaire étirable (non serré, sans compression) pour limiter les infections et la douleur de l'air.",
+        "Brûlure chimique : rincer à grande eau courante continue pendant au moins 20 à 30 minutes."
+      ],
+      "warnings": [
+        "Ne pas appliquer de beurre, graisse, dentifrice ou huile sur une brûlure.",
+        "Si surface brûlée > paume de la main ou chez un enfant : appel médical d'urgence immédiat."
+      ]
+    },
+    {
+      "id": "cbrn",
+      "title": "Protection & Retombées CBRN (Nucléaire / Toxique)",
+      "category": "survival",
+      "icon": "☢️",
+      "summary": "Protocoles de survie en cas d'explosion radiologique, nuage toxique ou incident nucléaire.",
+      "steps": [
+        "Règle d'or : METTEZ-VOUS À L'ABRI IMMÉDIATEMENT (Get Inside, Stay Inside, Stay Tuned).",
+        "Privilégier le sous-sol ou le centre d'un bâtiment en béton lourd ou briques. Éloignez-vous des murs extérieurs et des fenêtres.",
+        "Couper immédiatement les systèmes de ventilation, climatisation et cheminées. Calfeutrer fenêtres et portes avec ruban adhésif.",
+        "Si vous étiez dehors lors du nuage/retombées : se déshabiller prudemment avant d'entrer, placer les vêtements contaminés dans un sac poubelle hermétique (retire 90% des poussières).",
+        "Prendre une douche tiède savonneuse sans frotter la peau (ne pas érafler l'épiderme). Laver les cheveux sans après-shampooing (qui fixe les radioéléments).",
+        "Consommer UNIQUEMENT des conserves et bouteilles fermées qui étaient stockées à l'intérieur. Essuyer l'extérieur de la boîte avant ouverture.",
+        "Attendre au minimum 24 à 48 heures d'abri strict (la radioactivité des produits de fission décroît d'un facteur 100 après 48h selon la règle du 7/10)."
+      ],
+      "warnings": [
+        "Ne pas prendre d'iode stable (iodure de potassium) sans ordre explicite des autorités sanitaires (dangereux si mal dosé)."
+      ]
+    }
+  ]
+}
