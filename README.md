@@ -1,5 +1,7 @@
 # 🛡️ Survival LLM • PWA Standalone Android & PC
 
+🌐 **Application en ligne (GitHub Pages)** : **[https://olepicard.github.io/survival-llm-pwa/](https://olepicard.github.io/survival-llm-pwa/)**
+
 Version **Progressive Web App (PWA)** autonome en pur JavaScript/HTML5/CSS3 de **Survival LLM**.
 
 Au lieu de dépendre d'un binaire C++ compilé (`llama.cpp` / NDK), cette application fonctionne **dans n'importe quel navigateur moderne (Chrome, Samsung Internet, Edge, Firefox)** et se connecte via des **requêtes API HTTP en streaming (`fetch`)** à votre moteur LLM local préféré :
