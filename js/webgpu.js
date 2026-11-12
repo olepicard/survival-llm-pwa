@@ -187,4 +187,25 @@ export class WebGPUEngine {
     this.isLoaded = false;
     this.isLoading = false;
   }
+
+  /**
+   * Clear downloaded model shards from browser CacheStorage
+   */
+  async clearCache() {
+    await this.unload();
+    if ('caches' in window) {
+      try {
+        const keys = await caches.keys();
+        for (const key of keys) {
+          if (key.includes('webllm') || key.includes('mlc') || key.includes('wasm')) {
+            await caches.delete(key);
+          }
+        }
+        return true;
+      } catch (e) {
+        console.warn('Erreur suppression cache WebGPU:', e);
+      }
+    }
+    return false;
+  }
 }

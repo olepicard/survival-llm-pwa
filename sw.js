@@ -1,4 +1,4 @@
-const CACHE_NAME = 'survival-llm-v2.2';
+const CACHE_NAME = 'survival-llm-v2.3';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -44,18 +44,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // NEVER intercept or cache external LLM API calls (Ollama, OpenAI, Edge Gallery, LocalAI)
-  // or WebGPU weight downloads (HuggingFace, jsDelivr, esm.run which have their own CacheStorage)
-  if (
-    url.port === '11434' ||
-    url.port === '8080' ||
-    url.port === '5000' ||
-    url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/v1/') ||
-    url.hostname.includes('huggingface.co') ||
-    url.hostname.includes('jsdelivr.net') ||
-    url.hostname.includes('esm.run')
-  ) {
+  // ONLY intercept same-origin requests!
+  // Cross-origin requests (HuggingFace CDN, CloudFront, esm.run, jsDelivr, Ollama on loopback)
+  // MUST bypass the Service Worker completely so they are handled directly by the browser.
+  if (url.origin !== self.location.origin) {
     return;
   }
 

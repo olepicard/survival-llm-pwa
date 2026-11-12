@@ -214,11 +214,17 @@
                 <small class="field-hint">Les poids du modèle sont mis en cache une seule fois dans votre navigateur et fonctionnent ensuite 100% hors-ligne en mode avion.</small>
               </div>
 
-              <div class="field-split">
-                <button type="button" id="btn-preload-webgpu" class="btn btn-secondary">
-                  📥 Pré-charger le modèle WebGPU en cache
+              <div class="field-split" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+                <button type="button" id="btn-preload-webgpu" class="btn btn-primary">
+                  📥 Télécharger / Mettre en cache
+                </button>
+                <button type="button" id="btn-clear-webgpu-cache" class="btn btn-outline btn-sm">
+                  🔄 Réinitialiser le cache WebGPU
                 </button>
               </div>
+              <small class="field-hint" style="display: block; margin-top: 8px;">
+                ⚠️ <strong>Connexion requise pour le téléchargement initial :</strong> Veillez à désactiver le mode avion et à être connecté en WiFi pour télécharger les poids du modèle. Une fois à 100%, il fonctionne à vie en mode avion complet sans réseau.
+              </small>
 
               <div id="webgpu-preload-progress" class="download-progress-box" style="display: none; margin-top: 10px;">
                 <div class="progress-label-row">

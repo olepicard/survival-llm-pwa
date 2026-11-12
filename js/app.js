@@ -815,9 +815,16 @@ class SurvivalApp {
       });
     }
 
+    const btnClearWebgpu = document.getElementById('btn-clear-webgpu-cache');
+
     // Preload WebGPU Model
     if (btnPreloadWebgpu) {
       btnPreloadWebgpu.addEventListener('click', async () => {
+        if (!navigator.onLine) {
+          alert('⚠️ Vous êtes actuellement hors-ligne ou en mode avion.\nPour télécharger le modèle la première fois (~720 Mo), désactivez le mode avion et connectez-vous au WiFi.');
+          return;
+        }
+
         if (webgpuProgressBox) webgpuProgressBox.style.display = 'block';
         btnPreloadWebgpu.disabled = true;
 
@@ -829,12 +836,29 @@ class SurvivalApp {
           });
 
           if (webgpuStatusText) webgpuStatusText.textContent = '✅ Modèle WebGPU chargé et prêt hors-ligne !';
-          alert('🎉 Modèle WebGPU téléchargé et stocké dans le cache du navigateur ! Il est 100% prêt pour une utilisation hors-ligne.');
+          alert('🎉 Modèle WebGPU téléchargé et stocké dans le cache du navigateur ! Il est 100% opérationnel en mode avion.');
         } catch (err) {
+          console.error('WebGPU load error:', err);
+          let userHint = err.message;
+          if (err.message.includes('network error') || err.message.includes('Cache.add') || err.message.includes('Failed to fetch')) {
+            userHint = `Erreur réseau : le téléchargement a été interrompu.\n1. Vérifiez que le mode avion est désactivé et que vous êtes bien connecté à Internet.\n2. Cliquez sur « Réinitialiser le cache WebGPU » puis relancez le téléchargement.\n3. Astuce : vous pouvez aussi choisir le modèle ultra-léger SmolLM2 (210 Mo) pour un téléchargement plus rapide.`;
+          }
           if (webgpuStatusText) webgpuStatusText.textContent = `Erreur: ${err.message}`;
-          alert(`Échec du chargement WebGPU : ${err.message}`);
+          alert(`Échec du téléchargement WebGPU :\n${userHint}`);
         } finally {
           btnPreloadWebgpu.disabled = false;
+        }
+      });
+    }
+
+    // Reset / Clear WebGPU Cache
+    if (btnClearWebgpu) {
+      btnClearWebgpu.addEventListener('click', async () => {
+        if (confirm('Voulez-vous réinitialiser et vider les fichiers temporaires du modèle WebGPU ?')) {
+          await this.api.webgpu.clearCache();
+          if (webgpuProgressBox) webgpuProgressBox.style.display = 'none';
+          if (webgpuFill) webgpuFill.style.width = '0%';
+          alert('Cache WebGPU réinitialisé. Vous pouvez relancer le téléchargement proprement.');
         }
       });
     }
