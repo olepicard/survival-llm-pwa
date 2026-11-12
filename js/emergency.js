@@ -66,7 +66,7 @@ export class EmergencyManager {
   }
 
   openProtocolModal(protocolId) {
-    const proto = this.protocols.find(p => p.id === protocolId);
+    const proto = (this.protocols || []).find(p => p.id === protocolId);
     if (!proto) return;
 
     this.activeProtocol = proto;

@@ -79,7 +79,12 @@ export class WebGPUEngine {
       this.webLLMModule = await import(WEBGPU_CDN_URL);
       return this.webLLMModule;
     } catch (err) {
-      throw new Error(`Impossible de charger la bibliothèque WebGPU WebLLM (${err.message}). Vérifiez votre connexion Internet pour le chargement initial.`);
+      try {
+        this.webLLMModule = await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm/+esm');
+        return this.webLLMModule;
+      } catch (err2) {
+        throw new Error(`Impossible de charger la bibliothèque WebGPU WebLLM (${err.message}). Vérifiez votre connexion Internet pour le chargement initial.`);
+      }
     }
   }
 
@@ -87,7 +92,7 @@ export class WebGPUEngine {
    * Initialize or switch model
    */
   async loadModel(modelId, onProgress) {
-    const targetModel = modelId || this.currentModel;
+    let targetModel = modelId || this.currentModel;
 
     if (this.engine && this.currentModel === targetModel && this.isLoaded) {
       return this.engine;
@@ -102,6 +107,15 @@ export class WebGPUEngine {
     const webllm = await this._getWebLLM();
 
     try {
+      // Validate model exists in prebuilt catalog or fallback to recommended
+      if (webllm.prebuiltAppConfig && Array.isArray(webllm.prebuiltAppConfig.model_list)) {
+        const found = webllm.prebuiltAppConfig.model_list.some(m => m.model_id === targetModel);
+        if (!found) {
+          console.warn(`Modèle ${targetModel} non répertorié dans prebuiltAppConfig, repli sur Llama-3.2-1B-Instruct-q4f16_1-MLC`);
+          targetModel = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+        }
+      }
+
       const initProgressCallback = (report) => {
         if (onProgress) {
           const percent = Math.round(report.progress * 100);
@@ -113,11 +127,10 @@ export class WebGPUEngine {
         }
       };
 
+      // CRITICAL: Do NOT pass a bare appConfig object without model_list!
+      // Passing { initProgressCallback } lets WebLLM safely use its internal prebuiltAppConfig.model_list.
       this.engine = await webllm.CreateMLCEngine(targetModel, {
-        initProgressCallback,
-        appConfig: {
-          context_window_size: 2048
-        }
+        initProgressCallback
       });
 
       this.currentModel = targetModel;
@@ -140,7 +153,8 @@ export class WebGPUEngine {
     const stream = await this.engine.chat.completions.create({
       messages,
       stream: true,
-      temperature: parseFloat(localStorage.getItem('llm_temperature') || '0.7')
+      temperature: parseFloat(localStorage.getItem('llm_temperature') || '0.7'),
+      max_tokens: 1536
     });
 
     let fullText = '';

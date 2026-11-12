@@ -1,4 +1,4 @@
-const CACHE_NAME = 'survival-llm-v2.1';
+const CACHE_NAME = 'survival-llm-v2.2';
 const CORE_ASSETS = [
   './',
   './index.html',
