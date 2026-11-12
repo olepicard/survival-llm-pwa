@@ -298,10 +298,10 @@
               <!-- Terminal Command helper -->
               <div class="arch-cmd-box">
                 <div class="arch-cmd-header">
-                  <span id="arch-cmd-title">Commande Termux / Terminal pour démarrer Ollama :</span>
+                  <span id="arch-cmd-title">Commande Termux (avec autorisation CORS OLLAMA_ORIGINS) :</span>
                   <button type="button" id="btn-copy-arch-cmd" class="btn-sm btn-icon" title="Copier la commande">📋 Copier</button>
                 </div>
-                <pre id="arch-cmd-text">pkg install ollama&#10;ollama serve &amp;&#10;ollama run llama3.2:1b</pre>
+                <pre id="arch-cmd-text">export OLLAMA_ORIGINS="*"&#10;ollama serve &amp;&#10;ollama run llama3.2:1b</pre>
               </div>
             </div>
 

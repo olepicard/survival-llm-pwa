@@ -894,6 +894,12 @@ class SurvivalApp {
           testResultEl.innerHTML = `
             ❌ <strong>Échec de connexion :</strong><br/>
             ${escapeHtml(err.message)}
+            <div class="alert alert-warning" style="margin-top: 10px; font-size: 0.85rem; text-align: left;">
+              <strong>💡 Solution erreur 403 / CORS dans Termux :</strong><br/>
+              Si les logs de Termux affichent des lignes <code>403</code> (Forbidden), Ollama bloque l'accès web.<br/>
+              Dans Termux, arrêtez Ollama puis relancez-le avec l'autorisation d'origine :<br/>
+              <pre style="margin: 6px 0; padding: 6px; background: rgba(0,0,0,0.4); color: #38bdf8;">pkill ollama&#10;export OLLAMA_ORIGINS="*"&#10;ollama serve &amp;</pre>
+            </div>
           `;
         }
       });

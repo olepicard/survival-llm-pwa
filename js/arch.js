@@ -75,7 +75,7 @@ export class ArchitectureDetector {
           {
             title: 'Option A : Ollama Natif sur Android (via Termux)',
             badge: 'Recommandé 100% Hors-Ligne',
-            cmd: 'pkg update && pkg install ollama\nollama serve &\nollama run llama3.2:1b'
+            cmd: 'export OLLAMA_ORIGINS="*"\nollama serve &\nollama run llama3.2:1b'
           },
           {
             title: 'Option B : Serveur llama.cpp autonome ARM64 (llama-server)',
