@@ -1,8 +1,7 @@
 /**
  * Main Application Controller for Survival LLM PWA
  * Orchestrates local offline guides, storage capacity management,
- * device architecture detection (Android ARM64 / Snapdragon vs Windows x86_64),
- * and local LLM chat streaming.
+ * WebGPU in-browser engine (default), and external Ollama / llama.cpp engines.
  */
 
 import { LLMClient } from './api.js';
@@ -38,10 +37,11 @@ class SurvivalApp {
     this.setupGuidesUI();
     this.setupStorageUI();
 
-    // Load data
+    // Load emergency protocols
     await this.emergency.loadProtocols();
     this.emergency.renderEmergencyGrid(document.getElementById('sos-container'));
 
+    // Load offline guides database
     await this.db.init();
     this.renderGuidesThemeSelector();
     this.searchAndRenderGuides();
@@ -57,6 +57,9 @@ class SurvivalApp {
 
     // Detect hardware architecture & update UI
     this.initArchitectureDisplay();
+
+    // Update engine badge
+    this.updateEngineDisplayUI();
   }
 
   setupServiceWorker() {
@@ -104,6 +107,43 @@ class SurvivalApp {
     }
   }
 
+  updateEngineDisplayUI() {
+    const topBadge = document.getElementById('engine-mode-badge');
+    const activeBadge = document.getElementById('active-engine-badge');
+    const chatDesc = document.getElementById('chat-engine-desc');
+
+    const mode = this.api.engineMode;
+    let label = '';
+    let pillClass = 'badge-pill badge-primary';
+    let desc = '';
+
+    if (mode === 'webgpu') {
+      label = '⚡ WebGPU In-Browser';
+      pillClass = 'badge-pill badge-success';
+      desc = 'Moteur IA actif : <strong>WebGPU Embarqué</strong> (s\'exécute directement sur le GPU de votre appareil, 100% hors-ligne, aucun terminal).';
+    } else if (mode === 'ollama') {
+      label = '📱 Ollama Local (11434)';
+      pillClass = 'badge-pill badge-primary';
+      desc = 'Moteur IA actif : <strong>Ollama / llama.cpp</strong> (port 11434 via Termux ou PC distant).';
+    } else {
+      label = '🤖 Serveur API (8080)';
+      pillClass = 'badge-pill badge-neutral';
+      desc = 'Moteur IA actif : <strong>Serveur Compatible OpenAI</strong> (PocketPal / LocalAI).';
+    }
+
+    if (topBadge) {
+      topBadge.textContent = label;
+      topBadge.className = pillClass;
+    }
+    if (activeBadge) {
+      activeBadge.textContent = label;
+      activeBadge.className = pillClass;
+    }
+    if (chatDesc) {
+      chatDesc.innerHTML = desc;
+    }
+  }
+
   /* ---------------- Storage Management ---------------- */
 
   async updateStorageStatusUI() {
@@ -118,7 +158,6 @@ class SurvivalApp {
 
     const isFull = stats.isFullOffline;
 
-    // Header badge
     if (modeBadge) {
       if (isFull) {
         modeBadge.textContent = 'Full Hors-Ligne (16 Mo) ✅';
@@ -129,7 +168,6 @@ class SurvivalApp {
       }
     }
 
-    // Settings card status pill
     if (statusPill) {
       if (isFull) {
         statusPill.textContent = 'Complet (670 guides prêts)';
@@ -140,7 +178,6 @@ class SurvivalApp {
       }
     }
 
-    // Usage & Quota text
     if (usageText) {
       usageText.textContent = `Stockage PWA : ${stats.usageMB} Mo utilisés`;
     }
@@ -175,7 +212,6 @@ class SurvivalApp {
     const hasPrompted = localStorage.getItem('storage_prompt_shown');
     const isFull = await this.db.isFullOfflineReady();
 
-    // If never prompted and not yet full offline, offer choice to user
     if (!hasPrompted && !isFull) {
       const modal = document.getElementById('storage-prompt-modal');
       if (modal && typeof modal.showModal === 'function') {
@@ -192,14 +228,12 @@ class SurvivalApp {
     const btnSwitchPartial = document.getElementById('btn-switch-partial-mode');
     const btnReqPersistence = document.getElementById('btn-request-persistence');
 
-    // Prompt Modal: Download Full
     if (btnPromptFull) {
       btnPromptFull.addEventListener('click', async () => {
         await this.triggerFullDownload('prompt');
       });
     }
 
-    // Prompt Modal: Keep Partial
     if (btnPromptPartial) {
       btnPromptPartial.addEventListener('click', () => {
         localStorage.setItem('storage_prompt_shown', 'true');
@@ -209,14 +243,12 @@ class SurvivalApp {
       });
     }
 
-    // Settings Card: Download Full
     if (btnDownloadFull) {
       btnDownloadFull.addEventListener('click', async () => {
         await this.triggerFullDownload('settings');
       });
     }
 
-    // Settings Card: Switch to Partial
     if (btnSwitchPartial) {
       btnSwitchPartial.addEventListener('click', async () => {
         if (confirm('Voulez-vous libérer le cache des 670 guides intégraux et revenir au Mode Partiel (~1.5 Mo) ?')) {
@@ -228,7 +260,6 @@ class SurvivalApp {
       });
     }
 
-    // Settings Card: Request Persistence
     if (btnReqPersistence) {
       btnReqPersistence.addEventListener('click', async () => {
         const granted = await this.db.requestPersistence();
@@ -294,31 +325,22 @@ class SurvivalApp {
   async initArchitectureDisplay() {
     try {
       const archInfo = await this.arch.detect();
-      const archBadge = document.getElementById('arch-badge-pill');
       const devName = document.getElementById('arch-device-name');
       const cpuName = document.getElementById('arch-cpu-name');
-      const gpuName = document.getElementById('arch-gpu-name');
       const engineName = document.getElementById('arch-engine-name');
       const cmdText = document.getElementById('arch-cmd-text');
       const copyBtn = document.getElementById('btn-copy-arch-cmd');
 
-      if (archBadge) {
-        archBadge.textContent = archInfo.engine.targetName;
-      }
       if (devName) {
         devName.textContent = archInfo.model || `${archInfo.platform} (${archInfo.arch})`;
       }
       if (cpuName) {
         cpuName.textContent = `${archInfo.arch.toUpperCase()} (${archInfo.bitness} bits)`;
       }
-      if (gpuName) {
-        gpuName.textContent = archInfo.gpu || 'Accélération matérielle standard';
-      }
       if (engineName) {
         engineName.textContent = archInfo.engine.ollamaBinary;
       }
 
-      // Populate command text
       if (cmdText && archInfo.engine.launchCommands && archInfo.engine.launchCommands[0]) {
         cmdText.textContent = archInfo.engine.launchCommands[0].cmd;
       }
@@ -330,12 +352,6 @@ class SurvivalApp {
             setTimeout(() => { copyBtn.textContent = '📋 Copier'; }, 2000);
           });
         });
-      }
-
-      // If Android ARM64, pre-select 1b model in dropdown if user hasn't set one
-      if (archInfo.isAndroid && !localStorage.getItem('llm_model')) {
-        const modelSelect = document.getElementById('setting-model');
-        if (modelSelect) modelSelect.value = 'llama3.2:1b';
       }
 
     } catch (e) {
@@ -464,7 +480,6 @@ class SurvivalApp {
   async sendChatMessage(text, forcedContext = '') {
     const messagesContainer = document.getElementById('chat-messages');
     
-    // Remove welcome screen if present
     const welcome = messagesContainer.querySelector('.chat-welcome');
     if (welcome) welcome.remove();
 
@@ -503,13 +518,17 @@ class SurvivalApp {
       sourcesHtml = `<div class="msg-sources"><span class="sources-title">📚 Sources locales consultées :</span> ${badges}</div>`;
     }
 
+    const modelDisplayName = this.api.engineMode === 'webgpu' 
+      ? `WebGPU (${(this.api.webgpu.currentModel || '').split('-')[0]})` 
+      : this.api.model;
+
     assistantMsgEl.innerHTML = `
       <div class="msg-avatar">🛡️</div>
       <div class="msg-body">
         ${sourcesHtml}
         <div class="msg-bubble streaming-cursor">...</div>
         <div class="msg-footer">
-          <span class="msg-model">${escapeHtml(this.api.model)}</span>
+          <span class="msg-model">${escapeHtml(modelDisplayName)}</span>
           <button class="btn-copy-msg" title="Copier la réponse">📋</button>
         </div>
       </div>
@@ -538,7 +557,11 @@ class SurvivalApp {
           bubbleEl.innerHTML = renderMarkdown(currentFull);
           this.scrollChatToBottom();
         },
-        this.currentAbortController.signal
+        this.currentAbortController.signal,
+        (loadingProgress) => {
+          bubbleEl.innerHTML = `<div class="loading-spinner">🔄 [WebGPU] ${escapeHtml(loadingProgress.text)} (${loadingProgress.percent}%)</div>`;
+          this.scrollChatToBottom();
+        }
       );
 
       bubbleEl.classList.remove('streaming-cursor');
@@ -549,7 +572,7 @@ class SurvivalApp {
       const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
       const footerModel = assistantMsgEl.querySelector('.msg-model');
       if (footerModel) {
-        footerModel.textContent = `${this.api.model} • ${elapsed}s`;
+        footerModel.textContent = `${modelDisplayName} • ${elapsed}s`;
       }
 
       copyBtn.addEventListener('click', () => {
@@ -566,15 +589,15 @@ class SurvivalApp {
       } else {
         bubbleEl.innerHTML = `
           <div class="alert alert-error">
-            <strong>Erreur de connexion au modèle :</strong><br/>
+            <strong>Erreur de génération :</strong><br/>
             ${escapeHtml(err.message)}
           </div>
           <div class="error-help">
-            <p>💡 <strong>Conseils de démarrage du moteur local :</strong></p>
+            <p>💡 <strong>Conseils selon votre moteur :</strong></p>
             <ul>
-              <li><strong>Sur Android (Samsung S25 Ultra) :</strong> Dans Termux, lancez <code>ollama serve &</code> puis <code>ollama run llama3.2:1b</code>. L'adresse est <code>http://127.0.0.1:11434</code>.</li>
-              <li><strong>Avec llama-server / PocketPal :</strong> Vérifiez que le serveur écoute sur le port <code>8080</code> ou <code>11434</code>.</li>
-              <li><strong>Sur PC Windows distant :</strong> Lancez Ollama avec <code>set OLLAMA_HOST=0.0.0.0</code> et <code>set OLLAMA_ORIGINS=*</code> pour autoriser le smartphone via le WiFi.</li>
+              <li><strong>Si WebGPU est sélectionné :</strong> Vérifiez que votre navigateur (Chrome/Edge) supporte WebGPU et que vous disposez d'une connexion pour le premier téléchargement des poids.</li>
+              <li><strong>Si Ollama est sélectionné :</strong> Vérifiez qu'Ollama écoute sur <code>http://127.0.0.1:11434</code> (ou que l'IP de votre PC est correcte).</li>
+              <li>Vous pouvez changer de moteur à tout moment dans l'onglet <strong>⚙️ Réglages</strong>.</li>
             </ul>
           </div>
         `;
@@ -722,14 +745,12 @@ class SurvivalApp {
       </div>
     `;
 
-    // Connect in-modal download button if partial
     const dlBtn = bodyEl.querySelector('#btn-modal-dl-full');
     if (dlBtn) {
       dlBtn.addEventListener('click', async () => {
         dlBtn.disabled = true;
         dlBtn.textContent = 'Téléchargement en cours...';
         await this.triggerFullDownload('settings');
-        // Reload current article
         this.openGuideViewer(id);
       });
     }
@@ -738,6 +759,18 @@ class SurvivalApp {
   /* ---------------- Settings UI ---------------- */
 
   setupSettingsUI() {
+    // Engine mode radios
+    const engineRadios = document.querySelectorAll('input[name="engine-mode"]');
+    const sectionWebgpu = document.getElementById('section-webgpu-config');
+    const sectionExternal = document.getElementById('section-external-config');
+    const webgpuModelSelect = document.getElementById('setting-webgpu-model');
+    const btnPreloadWebgpu = document.getElementById('btn-preload-webgpu');
+    const webgpuProgressBox = document.getElementById('webgpu-preload-progress');
+    const webgpuStatusText = document.getElementById('webgpu-status-text');
+    const webgpuPercentText = document.getElementById('webgpu-percent-text');
+    const webgpuFill = document.getElementById('webgpu-fill');
+
+    // External engine inputs
     const endpointInput = document.getElementById('setting-endpoint');
     const apiTypeSelect = document.getElementById('setting-api-type');
     const modelSelect = document.getElementById('setting-model');
@@ -749,7 +782,64 @@ class SurvivalApp {
     const testResultEl = document.getElementById('test-conn-result');
     const presetBtns = document.querySelectorAll('.btn-preset');
 
-    // Populate current values
+    // Set active engine radio
+    engineRadios.forEach(radio => {
+      if (radio.value === this.api.engineMode) {
+        radio.checked = true;
+        const parentCard = radio.closest('.engine-radio-card');
+        if (parentCard) parentCard.classList.add('active');
+      } else {
+        const parentCard = radio.closest('.engine-radio-card');
+        if (parentCard) parentCard.classList.remove('active');
+      }
+
+      radio.addEventListener('change', () => {
+        document.querySelectorAll('.engine-radio-card').forEach(c => c.classList.remove('active'));
+        const parentCard = radio.closest('.engine-radio-card');
+        if (parentCard) parentCard.classList.add('active');
+
+        this.api.saveSettings({ engineMode: radio.value });
+        this.toggleEngineSubconfigs(radio.value);
+        this.updateEngineDisplayUI();
+      });
+    });
+
+    this.toggleEngineSubconfigs(this.api.engineMode);
+
+    // WebGPU model selector
+    if (webgpuModelSelect) {
+      webgpuModelSelect.value = this.api.webgpu.currentModel;
+      webgpuModelSelect.addEventListener('change', () => {
+        this.api.saveSettings({ webgpuModel: webgpuModelSelect.value });
+        this.updateEngineDisplayUI();
+      });
+    }
+
+    // Preload WebGPU Model
+    if (btnPreloadWebgpu) {
+      btnPreloadWebgpu.addEventListener('click', async () => {
+        if (webgpuProgressBox) webgpuProgressBox.style.display = 'block';
+        btnPreloadWebgpu.disabled = true;
+
+        try {
+          await this.api.webgpu.loadModel(webgpuModelSelect.value, (report) => {
+            if (webgpuStatusText) webgpuStatusText.textContent = report.text;
+            if (webgpuPercentText) webgpuPercentText.textContent = `${report.percent}%`;
+            if (webgpuFill) webgpuFill.style.width = `${report.percent}%`;
+          });
+
+          if (webgpuStatusText) webgpuStatusText.textContent = '✅ Modèle WebGPU chargé et prêt hors-ligne !';
+          alert('🎉 Modèle WebGPU téléchargé et stocké dans le cache du navigateur ! Il est 100% prêt pour une utilisation hors-ligne.');
+        } catch (err) {
+          if (webgpuStatusText) webgpuStatusText.textContent = `Erreur: ${err.message}`;
+          alert(`Échec du chargement WebGPU : ${err.message}`);
+        } finally {
+          btnPreloadWebgpu.disabled = false;
+        }
+      });
+    }
+
+    // Populate external engine values
     if (endpointInput) endpointInput.value = this.api.endpoint;
     if (apiTypeSelect) apiTypeSelect.value = this.api.apiType;
     if (modelSelect) modelSelect.value = this.api.model;
@@ -772,7 +862,7 @@ class SurvivalApp {
       });
     });
 
-    // Test connection
+    // Test connection (Ollama/OpenAI)
     if (testBtn) {
       testBtn.addEventListener('click', async () => {
         testResultEl.className = 'test-result-box loading';
@@ -812,13 +902,20 @@ class SurvivalApp {
     // Save settings
     if (saveBtn) {
       saveBtn.addEventListener('click', () => {
+        const activeRadio = document.querySelector('input[name="engine-mode"]:checked');
+        const currentMode = activeRadio ? activeRadio.value : 'webgpu';
+
         this.api.saveSettings({
-          endpoint: endpointInput.value,
-          apiType: apiTypeSelect.value,
-          model: modelSelect.value,
-          temperature: tempInput.value,
-          systemPrompt: sysPromptInput.value
+          engineMode: currentMode,
+          webgpuModel: webgpuModelSelect ? webgpuModelSelect.value : undefined,
+          endpoint: endpointInput ? endpointInput.value : undefined,
+          apiType: apiTypeSelect ? apiTypeSelect.value : undefined,
+          model: modelSelect ? modelSelect.value : undefined,
+          temperature: tempInput ? tempInput.value : undefined,
+          systemPrompt: sysPromptInput ? sysPromptInput.value : undefined
         });
+
+        this.updateEngineDisplayUI();
 
         const toast = document.getElementById('settings-toast');
         if (toast) {
@@ -826,6 +923,19 @@ class SurvivalApp {
           setTimeout(() => toast.classList.remove('show'), 2500);
         }
       });
+    }
+  }
+
+  toggleEngineSubconfigs(mode) {
+    const sectionWebgpu = document.getElementById('section-webgpu-config');
+    const sectionExternal = document.getElementById('section-external-config');
+
+    if (mode === 'webgpu') {
+      if (sectionWebgpu) sectionWebgpu.style.display = 'block';
+      if (sectionExternal) sectionExternal.style.display = 'none';
+    } else {
+      if (sectionWebgpu) sectionWebgpu.style.display = 'none';
+      if (sectionExternal) sectionExternal.style.display = 'block';
     }
   }
 }

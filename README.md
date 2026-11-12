@@ -4,51 +4,50 @@
 
 Version **Progressive Web App (PWA)** autonome en pur JavaScript/HTML5/CSS3 de **Survival LLM**, optimisée pour fonctionnement 100% hors-ligne en mode avion sur smartphone (Samsung Galaxy S25 Ultra, Pixel, etc.) et PC.
 
-Au lieu de dépendre d'un binaire C++ compilé monolithique, cette application fonctionne **dans n'importe quel navigateur moderne (Chrome, Samsung Internet, Edge, Firefox)** et se connecte via des **requêtes API HTTP en streaming (`fetch`)** à votre moteur LLM local préféré adapté à l'architecture matérielle cible :
-* **Ollama / llama.cpp ARM64 natif sur Android (via Termux)** sur smartphone (ex: Snapdragon 8 Elite avec Adreno 830)
-* **Ollama / llama.cpp x86_64 sur PC Windows** (accessible en local ou sur le réseau WiFi)
-* **PocketPal AI / Edge Gallery / LocalAI / MLC LLM** sur Android (API compatible OpenAI).
-
 ---
 
-## 💾 Gestionnaire de Capacité Mémoire & Modes Hors-Ligne
+## ⚡ Deux Modes d'Exécution IA au Choix
 
-L'application teste automatiquement la capacité disque de votre smartphone ou PC via `navigator.storage.estimate()` et demande la persistance des données via `navigator.storage.persist()` :
+L'application prend en charge deux approches complémentaires configurables dans l'onglet **⚙️ Réglages** :
 
-| Mode de Stockage | Taille Disque | Contenu & Disponibilité Hors-Ligne | Recommandé pour |
-| :--- | :--- | :--- | :--- |
-| **📦 Full Hors-Ligne** *(Recommandé)* | **~16 Mo** | **100% des 670 guides intégraux** téléchargés et stockés dans `IndexedDB` & `CacheStorage`. Zéro réseau requis, tous les manuels de survie et protocoles médicaux s'ouvrent en mode avion sans erreur. | Expéditions, zones blanches, pannes réseau, autonomie totale. |
-| **⚡ Mode Partiel / Léger** | **~1.5 Mo** | Fiches réflexes SOS d'urgence, index de recherche et extraits RAG conservés hors-ligne. Les manuels intégraux affichent une fiche résumé avec bouton de téléchargement en un clic. | Appareils avec espace très restreint. |
+### 1. 🌐 Moteur WebGPU Embarqué (In-Browser) — *Activé par Défaut*
+* **Zéro installation, aucun terminal, aucun Termux requis.**
+* Le modèle IA (ex: **Llama 3.2 1B Instruct**, ~720 Mo) s'exécute **directement dans le navigateur** en tirant parti du GPU de votre smartphone (ex: **Qualcomm Adreno 830** sur Galaxy S25 Ultra avec pilotes Vulkan).
+* Les poids du modèle sont mis en cache localement dans le navigateur lors du premier chargement et fonctionnent ensuite **100% hors-ligne en mode avion**.
+* Modèles disponibles :
+  * `Llama-3.2-1B-Instruct-q4f16_1-MLC` (Recommandé mobile • 720 Mo)
+  * `SmolLM2-360M-Instruct-q4f16_1-MLC` (Ultra Léger • 210 Mo)
+  * `Qwen2.5-0.5B-Instruct-q4f16_1-MLC` (Compact & Précis • 360 Mo)
+  * `Llama-3.2-3B-Instruct-q4f16_1-MLC` (Haute Précision PC / 12 Go+ RAM • 1.8 Go)
 
----
-
-## 🎯 Architecture Cible & Moteur LLM Détecté
-
-La PWA intègre un module de détection matérielle (`js/arch.js`) qui analyse l'architecture CPU et le GPU de l'appareil client pour fournir les instructions et binaires adaptés issus de [github.com/ollama/ollama](https://github.com/ollama/ollama/) (`llama.cpp`) :
-
-### 1. Sur Smartphone Android ARM64 (ex: Samsung Galaxy S25 Ultra)
-* **Processeur :** Qualcomm Snapdragon 8 Elite (AArch64 / ARMv9-A)
-* **GPU :** Qualcomm Adreno 830 (Vulkan 1.3 / OpenCL)
-* **Binaire adapté :** `ollama-linux-arm64` (ou `llama-server` compilé avec `ggml-cpu` NEON et shaders Vulkan)
-* **Démarrage ultra-rapide dans Termux (sans root) :**
+### 2. 📱 Moteur Natif Ollama / llama.cpp (Port 11434 / 8080)
+Pour les utilisateurs qui souhaitent exploiter la vitesse maximale brute en C++ ou des modèles plus lourds (3B ou 7B) :
+* **Sur Android via Termux (Ollama ARM64) :**
   ```bash
   pkg update && pkg install ollama
   ollama serve &
   ollama run llama3.2:1b
   ```
-  *Dans la PWA, l'URL est directement `http://127.0.0.1:11434` !*
-
-### 2. Sur PC Windows (x86_64 / AMD64)
-* **Processeur :** x86_64 avec instructions vectorielles AVX2 / AVX-512
-* **Accélération :** NVIDIA CUDA / Vulkan
-* **Binaire adapté :** `ollama-windows-amd64.exe`
-* **Démarrage sur PC partagé avec le Smartphone en WiFi :**
+  *Dans la PWA, l'URL est `http://127.0.0.1:11434`.*
+* **Sur Android via Application Graphique (PocketPal AI) :**
+  Installez PocketPal AI, chargez un modèle GGUF et cochez *« Démarrer le serveur local »* (port 8080).
+* **Sur PC Windows partagé en WiFi local vers le smartphone :**
   ```cmd
   set OLLAMA_HOST=0.0.0.0
   set OLLAMA_ORIGINS=*
   ollama serve
   ```
-  *Dans la PWA sur le S25 Ultra, entrez `http://192.168.1.X:11434` (IP locale de votre PC).*
+
+---
+
+## 💾 Gestionnaire de Capacité Mémoire & Modes Hors-Ligne
+
+L'application teste automatiquement la capacité disque de votre appareil via `navigator.storage.estimate()` et demande la persistance anti-purge via `navigator.storage.persist()` :
+
+| Mode de Stockage | Taille Disque | Contenu & Disponibilité Hors-Ligne | Recommandé pour |
+| :--- | :--- | :--- | :--- |
+| **📦 Full Hors-Ligne** *(Recommandé)* | **~16 Mo** | **100% des 670 guides intégraux** téléchargés et stockés dans `IndexedDB` & `CacheStorage`. Zéro réseau requis, tous les manuels de survie et protocoles médicaux s'ouvrent en mode avion sans erreur. | Expéditions, zones blanches, pannes réseau, autonomie totale. |
+| **⚡ Mode Partiel / Léger** | **~1.5 Mo** | Fiches réflexes SOS d'urgence, index de recherche et extraits RAG conservés hors-ligne. Les manuels intégraux affichent une fiche résumé avec bouton de téléchargement en un clic. | Appareils avec espace très restreint. |
 
 ---
 
@@ -59,7 +58,7 @@ La PWA intègre un module de détection matérielle (`js/arch.js`) qui analyse l
    * Cliquez sur le bouton **« 📲 Installer »** ou via le menu du navigateur : **« Ajouter à l'écran d'accueil »**.
    * L'application s'ouvre en **plein écran**, avec son icône d'application dédiée, sans barre d'URL.
 2. **Fonctionnement 100% Hors-Ligne (Offline-First)** :
-   * L'application est mise en cache localement par le **Service Worker (`sw.js` v2.0)** avec stratégie Cache-First pour les données.
+   * L'application est mise en cache localement par le **Service Worker (`sw.js` v2.1)** avec stratégie Cache-First pour les données.
    * **670 guides de survie traduits en français** (SERE, FEMA, TCCC, secourisme militaire, hygiène, conserves sûres USDA, WikiCiv) sont stockés dans la base locale (`IndexedDB`).
    * **8 fiches réflexes d'urgence vitale** (Garrot tourniquet, arrêt cardiaque RCR, étouffement Heimlich, purification d'eau, hypothermie, feu, brûlures, retombées CBRN) sont accessibles instantanément.
 3. **Moteur RAG Hybride Local** :
@@ -73,16 +72,17 @@ La PWA intègre un module de détection matérielle (`js/arch.js`) qui analyse l
 
 ```
 js pwa standealone/
-├── index.html                  # Interface utilisateur PWA et dialogues de stockage
+├── index.html                  # Interface utilisateur PWA et sélecteur de moteurs
 ├── manifest.webmanifest        # Manifeste PWA Android
-├── sw.js                       # Service Worker v2.0 (Cache-First Offline)
+├── sw.js                       # Service Worker v2.1 (Cache-First Offline)
 ├── server.py                   # Serveur local de distribution (MIME types & IP LAN)
 ├── start.bat                   # Lanceur rapide Windows
 ├── css/
-│   └── styles.css              # Thème AMOLED, barre de quota, jauges et cartes
+│   └── styles.css              # Thème AMOLED, radio cards moteurs, jauge et cartes
 ├── js/
 │   ├── app.js                  # Contrôleur général et gestionnaire du cycle de vie
-│   ├── api.js                  # Client API HTTP (Ollama & OpenAI) avec streaming
+│   ├── api.js                  # Client API unifié (WebGPU, Ollama, OpenAI)
+│   ├── webgpu.js               # Moteur WebLLM WebGPU in-browser (zéro-install)
 │   ├── arch.js                 # Détection architecture matérielle & moteur llama.cpp
 │   ├── db.js                   # IndexedDB, estimation quota & packs Full/Partiel
 │   ├── emergency.js            # Protocoles réflexes d'urgence immédiate

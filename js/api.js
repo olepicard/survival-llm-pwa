@@ -1,15 +1,27 @@
 /**
- * API Client for Ollama & OpenAI-compatible local LLM engines
- * Supports streaming, auto-detection, and Modern Web Local Network Access (LNA)
+ * Unified Local LLM Client for Survival PWA
+ * Supports:
+ * 1. WebGPU In-Browser Engine (Default - zero install, zero Termux)
+ * 2. Ollama / llama.cpp Local (Port 11434 - Termux / PC Windows)
+ * 3. OpenAI-compatible Local Servers (Port 8080 - PocketPal AI / LocalAI)
  */
+
+import { WebGPUEngine, WEBGPU_MODELS } from './webgpu.js';
 
 export class LLMClient {
   constructor() {
+    // Engine mode: 'webgpu' (default) | 'ollama' | 'openai'
+    this.engineMode = localStorage.getItem('llm_engine_mode') || 'webgpu';
+
+    // Ollama / OpenAI settings
     this.endpoint = localStorage.getItem('llm_endpoint') || 'http://127.0.0.1:11434';
     this.apiType = localStorage.getItem('llm_api_type') || 'ollama'; // 'ollama' | 'openai'
-    this.model = localStorage.getItem('llm_model') || 'llama3.2:3b';
+    this.model = localStorage.getItem('llm_model') || 'llama3.2:1b';
     this.temperature = parseFloat(localStorage.getItem('llm_temperature') || '0.7');
     this.systemPrompt = localStorage.getItem('llm_system_prompt') || this.getDefaultSystemPrompt();
+
+    // WebGPU Engine instance
+    this.webgpu = new WebGPUEngine();
   }
 
   getDefaultSystemPrompt() {
@@ -22,6 +34,10 @@ DIRECTIVES :
   }
 
   saveSettings(settings) {
+    if (settings.engineMode !== undefined) {
+      this.engineMode = settings.engineMode;
+      localStorage.setItem('llm_engine_mode', this.engineMode);
+    }
     if (settings.endpoint !== undefined) {
       this.endpoint = settings.endpoint.replace(/\/+$/, '');
       localStorage.setItem('llm_endpoint', this.endpoint);
@@ -33,6 +49,10 @@ DIRECTIVES :
     if (settings.model !== undefined) {
       this.model = settings.model;
       localStorage.setItem('llm_model', this.model);
+    }
+    if (settings.webgpuModel !== undefined) {
+      this.webgpu.currentModel = settings.webgpuModel;
+      localStorage.setItem('webgpu_model', settings.webgpuModel);
     }
     if (settings.temperature !== undefined) {
       this.temperature = parseFloat(settings.temperature);
@@ -89,7 +109,6 @@ DIRECTIVES :
     try {
       return await fetch(url, fetchOpts);
     } catch (err) {
-      // If failed with targetAddressSpace, retry once without it in case of strict error
       if (fetchOpts.targetAddressSpace) {
         delete fetchOpts.targetAddressSpace;
         return await fetch(url, fetchOpts);
@@ -99,27 +118,25 @@ DIRECTIVES :
   }
 
   /**
-   * Test connection and retrieve available models
+   * Test connection and retrieve available models (for Ollama / OpenAI)
    */
   async checkConnectionAndGetModels() {
     const base = this.endpoint;
     const errors = [];
 
-    // Try Ollama endpoint first if apiType is ollama or auto
     if (this.apiType === 'ollama') {
       try {
         const res = await this.lnaFetch(`${base}/api/tags`, { method: 'GET' });
         if (res.ok) {
           const data = await res.json();
           const models = (data.models || []).map(m => m.name || m.model);
-          return { ok: true, type: 'ollama', models: models.length ? models : ['llama3.2:3b'] };
+          return { ok: true, type: 'ollama', models: models.length ? models : ['llama3.2:1b'] };
         }
       } catch (err) {
         errors.push(`Ollama /api/tags: ${err.message}`);
       }
     }
 
-    // Try OpenAI endpoint
     try {
       const res = await this.lnaFetch(`${base}/v1/models`, { method: 'GET' });
       if (res.ok) {
@@ -131,7 +148,6 @@ DIRECTIVES :
       errors.push(`OpenAI /v1/models: ${err.message}`);
     }
 
-    // Direct ping test fallback
     try {
       const res = await this.lnaFetch(base, { method: 'GET' });
       if (res.ok) {
@@ -145,26 +161,26 @@ DIRECTIVES :
   }
 
   /**
-   * Send a chat request with streaming tokens
-   * @param {Array<{role: string, content: string}>} messages
-   * @param {Function} onToken - callback(tokenText, fullText)
-   * @param {AbortSignal} signal
+   * Unified stream chat completion
    */
-  async streamChat(messages, onToken, signal) {
-    const isOllama = this.apiType === 'ollama';
-    const base = this.endpoint;
-
-    // Prepend system prompt if not present
+  async streamChat(messages, onToken, signal, onLoadingProgress) {
     const fullMessages = [
       { role: 'system', content: this.systemPrompt },
       ...messages
     ];
 
-    if (isOllama) {
-      return this._streamOllama(base, fullMessages, onToken, signal);
-    } else {
-      return this._streamOpenAI(base, fullMessages, onToken, signal);
+    // 1. WebGPU Mode (Default)
+    if (this.engineMode === 'webgpu') {
+      return this.webgpu.streamChat(fullMessages, onToken, signal, onLoadingProgress);
     }
+
+    // 2. Ollama Mode
+    if (this.engineMode === 'ollama' || (this.engineMode === 'external' && this.apiType === 'ollama')) {
+      return this._streamOllama(this.endpoint, fullMessages, onToken, signal);
+    }
+
+    // 3. OpenAI Compatible Mode (PocketPal / llama-server / LocalAI)
+    return this._streamOpenAI(this.endpoint, fullMessages, onToken, signal);
   }
 
   async _streamOllama(base, messages, onToken, signal) {
@@ -201,7 +217,7 @@ DIRECTIVES :
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop(); // keep partial line in buffer
+      buffer = lines.pop();
 
       for (const line of lines) {
         const trimmed = line.trim();
@@ -217,7 +233,7 @@ DIRECTIVES :
             return fullText;
           }
         } catch {
-          // ignore malformed JSON chunk
+          // ignore
         }
       }
     }

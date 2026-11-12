@@ -1,4 +1,4 @@
-const CACHE_NAME = 'survival-llm-v2.0';
+const CACHE_NAME = 'survival-llm-v2.1';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -6,6 +6,8 @@ const CORE_ASSETS = [
   './css/styles.css',
   './js/app.js',
   './js/api.js',
+  './js/webgpu.js',
+  './js/arch.js',
   './js/rag.js',
   './js/db.js',
   './js/emergency.js',
@@ -43,12 +45,16 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // NEVER intercept or cache external LLM API calls (Ollama, OpenAI, Edge Gallery, LocalAI)
+  // or WebGPU weight downloads (HuggingFace, jsDelivr, esm.run which have their own CacheStorage)
   if (
     url.port === '11434' ||
     url.port === '8080' ||
     url.port === '5000' ||
     url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/v1/')
+    url.pathname.startsWith('/v1/') ||
+    url.hostname.includes('huggingface.co') ||
+    url.hostname.includes('jsdelivr.net') ||
+    url.hostname.includes('esm.run')
   ) {
     return;
   }
@@ -69,7 +75,6 @@ self.addEventListener('fetch', (event) => {
             return networkResponse;
           })
           .catch(() => {
-            // If offline and bundle not cached, return index fallback if possible
             return caches.match('./data/guides_index.json');
           });
       })
@@ -93,7 +98,6 @@ self.addEventListener('fetch', (event) => {
         });
         return networkResponse;
       }).catch(() => {
-        // Fallback for HTML navigation when offline
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html');
         }

@@ -1159,6 +1159,12 @@ dialog:modal {
   border: 1px solid rgba(16, 185, 129, 0.35);
 }
 
+.badge-primary {
+  background-color: rgba(37, 99, 235, 0.25);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+}
+
 .badge-warning {
   background-color: rgba(245, 158, 11, 0.2);
   color: #fbbf24;
@@ -1359,4 +1365,75 @@ dialog:modal {
   gap: 10px;
   margin-top: 16px;
 }
+
+/* Engine Choice Radio Cards */
+.engine-choice-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.engine-radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.engine-radio-card:hover {
+  background-color: var(--bg-hover);
+  border-color: #475569;
+}
+
+.engine-radio-card.active {
+  border-color: #3b82f6;
+  background-color: rgba(37, 99, 235, 0.08);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+}
+
+.engine-radio-card input[type="radio"] {
+  margin-top: 3px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+}
+
+.engine-radio-content {
+  flex: 1;
+}
+
+.engine-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.engine-title-row strong {
+  font-size: 0.94rem;
+  color: #ffffff;
+}
+
+.engine-radio-content p {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.engine-subconfig {
+  background-color: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-top: 14px;
+}
+
 

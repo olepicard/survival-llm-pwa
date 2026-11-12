@@ -32,6 +32,7 @@
           <h1>Survival LLM</h1>
           <div class="header-sub">
             <span id="status-badge" class="status-badge">Initialisation...</span>
+            <span id="engine-mode-badge" class="badge-pill badge-primary">⚡ WebGPU In-Browser</span>
             <span id="storage-mode-badge" class="badge-pill badge-neutral">Mode Stockage...</span>
           </div>
         </div>
@@ -56,7 +57,7 @@
           <div class="chat-welcome">
             <div class="welcome-icon">🛡️</div>
             <h3>Assistant de Survie & Secourisme</h3>
-            <p>Assistant d'urgence connecté à votre moteur LLM local (Ollama ou llama.cpp adapté à votre appareil).</p>
+            <p id="chat-engine-desc">Moteur IA par défaut : <strong>WebGPU Embarqué</strong> (s'exécute directement dans le navigateur, 100% hors-ligne, sans Termux ni serveur externe).</p>
             <div class="quick-prompts">
               <button class="btn-prompt-chip" data-q="Comment purifier de l'eau suspecte en milieu sauvage sans matériel ?">💧 Purification d'eau d'urgence</button>
               <button class="btn-prompt-chip" data-q="Quelles sont les étapes pour poser un garrot tourniquet sur une hémorragie ?">🩸 Garrot & Hémorragie grave</button>
@@ -106,7 +107,7 @@
         <div id="guides-list-container" class="guides-list"></div>
       </section>
 
-      <!-- TAB 4: RÉGLAGES, STOCKAGE & CONNEXION LLM -->
+      <!-- TAB 4: RÉGLAGES, MOTEURS & STOCKAGE -->
       <section id="tab-settings" class="tab-view">
         <div class="settings-container">
 
@@ -154,98 +155,158 @@
             </div>
           </div>
 
-          <!-- 2. ARCHITECTURE CIBLE & MOTEUR LLM ADAPTÉ -->
-          <div class="settings-card arch-card">
+          <!-- 2. SÉLECTION DU MOTEUR IA LOCAL -->
+          <div class="settings-card engine-card">
             <div class="card-header">
-              <h3>🎯 Architecture Matérielle & Moteur Local</h3>
-              <span id="arch-badge-pill" class="badge-pill badge-success">Détection...</span>
+              <h3>🤖 Sélection du Moteur IA</h3>
+              <span id="active-engine-badge" class="badge-pill badge-success">WebGPU Actif</span>
             </div>
             <p class="settings-desc">
-              Architecture détectée sur cet appareil et moteur d'inférence adapté d'après <a href="https://github.com/ollama/ollama/" target="_blank" rel="noopener">ollama/ollama (llama.cpp)</a>.
+              Choisissez le mode d'exécution de l'intelligence artificielle sur votre appareil :
             </p>
 
-            <div class="arch-info-box">
-              <div class="arch-row">
-                <strong>Appareil & Processeur :</strong> <span id="arch-device-name">Détection en cours...</span>
-              </div>
-              <div class="arch-row">
-                <strong>Architecture CPU :</strong> <span id="arch-cpu-name">...</span>
-              </div>
-              <div class="arch-row">
-                <strong>Accélérateur GPU :</strong> <span id="arch-gpu-name">...</span>
-              </div>
-              <div class="arch-row">
-                <strong>Moteur llama.cpp adapté :</strong> <span id="arch-engine-name">...</span>
-              </div>
+            <!-- Mode Selector -->
+            <div class="engine-choice-selector">
+              <label class="engine-radio-card active" id="engine-card-webgpu">
+                <input type="radio" name="engine-mode" value="webgpu" checked>
+                <div class="engine-radio-content">
+                  <div class="engine-title-row">
+                    <strong>🌐 WebGPU Embarqué (In-Browser)</strong>
+                    <span class="badge-pill badge-success">Par défaut</span>
+                  </div>
+                  <p>Exécution directe sur le GPU de votre smartphone (ex: Adreno 830). <strong>Zéro terminal, aucun Termux, 100% hors-ligne.</strong></p>
+                </div>
+              </label>
+
+              <label class="engine-radio-card" id="engine-card-ollama">
+                <input type="radio" name="engine-mode" value="ollama">
+                <div class="engine-radio-content">
+                  <div class="engine-title-row">
+                    <strong>📱 Ollama / llama.cpp Local (Port 11434)</strong>
+                    <span class="badge-pill badge-neutral">Termux / PC</span>
+                  </div>
+                  <p>Inférence C++ native pure avec instructions ARM NEON ou GPU PC (Ollama sous Termux ou PC Windows).</p>
+                </div>
+              </label>
+
+              <label class="engine-radio-card" id="engine-card-openai">
+                <input type="radio" name="engine-mode" value="openai">
+                <div class="engine-radio-content">
+                  <div class="engine-title-row">
+                    <strong>🤖 Serveur Local / App APK (Port 8080)</strong>
+                    <span class="badge-pill badge-neutral">PocketPal / LocalAI</span>
+                  </div>
+                  <p>Application Android avec interface graphique (PocketPal AI) ou serveur API local compatible OpenAI.</p>
+                </div>
+              </label>
             </div>
 
-            <div class="settings-group">
-              <label class="group-title">⚡ Préréglages adaptés à votre architecture :</label>
-              <div class="presets-grid" id="arch-presets-container">
-                <button type="button" class="btn-preset" data-url="http://127.0.0.1:11434" data-type="ollama">
-                  📱 Ollama Local (Termux ARM64)
-                </button>
-                <button type="button" class="btn-preset" data-url="http://127.0.0.1:8080" data-type="openai">
-                  🤖 llama-server / PocketPal (Port 8080)
-                </button>
-                <button type="button" class="btn-preset" data-url="http://192.168.1.50:11434" data-type="ollama">
-                  💻 Ollama PC Windows (LAN WiFi)
-                </button>
-                <button type="button" class="btn-preset" data-url="http://127.0.0.1:5000" data-type="openai">
-                  ⚡ LocalAI / MLC (Port 5000)
-                </button>
+            <!-- Sous-configuration : WebGPU -->
+            <div id="section-webgpu-config" class="engine-subconfig">
+              <div class="settings-group">
+                <label for="setting-webgpu-model" class="group-title">Modèle WebGPU In-Browser</label>
+                <select id="setting-webgpu-model">
+                  <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B Instruct (Recommandé S25 Ultra • ~720 Mo)</option>
+                  <option value="SmolLM2-360M-Instruct-q4f16_1-MLC">SmolLM2 360M Instruct (Ultra Léger • ~210 Mo)</option>
+                  <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">Qwen 2.5 0.5B Instruct (Léger & Précis • ~360 Mo)</option>
+                  <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama 3.2 3B Instruct (Haute Précision • ~1.8 Go)</option>
+                </select>
+                <small class="field-hint">Les poids du modèle sont mis en cache une seule fois dans votre navigateur et fonctionnent ensuite 100% hors-ligne en mode avion.</small>
               </div>
-            </div>
 
-            <!-- Command block to launch on target -->
-            <div class="arch-cmd-box" id="arch-cmd-box">
-              <div class="arch-cmd-header">
-                <span id="arch-cmd-title">Commande de démarrage local :</span>
-                <button type="button" id="btn-copy-arch-cmd" class="btn-sm btn-icon" title="Copier la commande">📋 Copier</button>
-              </div>
-              <pre id="arch-cmd-text">pkg install ollama&#10;ollama serve &amp;&#10;ollama run llama3.2:1b</pre>
-            </div>
-          </div>
-
-          <!-- 3. CONFIGURATION API & MODÈLE -->
-          <div class="settings-card">
-            <h3>⚙️ Paramètres de Connexion au Serveur LLM</h3>
-
-            <!-- Connection Form -->
-            <div class="settings-group">
-              <label for="setting-endpoint" class="group-title">Adresse du Serveur LLM (Loopback / LAN)</label>
-              <input type="url" id="setting-endpoint" placeholder="http://127.0.0.1:11434 ou http://192.168.1.X:11434" required />
-              <small class="field-hint">En local autonome sur Android : <code>http://127.0.0.1:11434</code> (Termux) ou port <code>8080</code>.</small>
-            </div>
-
-            <div class="settings-group">
-              <label for="setting-api-type" class="group-title">Protocole API</label>
-              <select id="setting-api-type">
-                <option value="ollama">Ollama (/api/chat, /api/tags)</option>
-                <option value="openai">OpenAI / llama-server (/v1/chat/completions, /v1/models)</option>
-              </select>
-            </div>
-
-            <div class="settings-group">
               <div class="field-split">
-                <button type="button" id="btn-test-connection" class="btn btn-secondary">
-                  🔄 Tester la connexion & lister les modèles
+                <button type="button" id="btn-preload-webgpu" class="btn btn-secondary">
+                  📥 Pré-charger le modèle WebGPU en cache
                 </button>
               </div>
-              <div id="test-conn-result" class="test-result-box"></div>
+
+              <div id="webgpu-preload-progress" class="download-progress-box" style="display: none; margin-top: 10px;">
+                <div class="progress-label-row">
+                  <span id="webgpu-status-text">Initialisation WebGPU...</span>
+                  <span id="webgpu-percent-text">0%</span>
+                </div>
+                <div class="storage-progress-bar">
+                  <div id="webgpu-fill" class="progress-fill progress-fill-active" style="width: 0%;"></div>
+                </div>
+              </div>
             </div>
 
-            <div class="settings-group">
-              <label for="setting-model" class="group-title">Modèle LLM</label>
-              <select id="setting-model">
-                <option value="llama3.2:1b">llama3.2:1b (Recommandé ultra-rapide smartphone)</option>
-                <option value="llama3.2:3b">llama3.2:3b (Équilibré précision S25 Ultra / PC)</option>
-                <option value="qwen2.5:3b">qwen2.5:3b (Excellente précision)</option>
-                <option value="mistral:7b">mistral:7b (Complet pour PC)</option>
-              </select>
+            <!-- Sous-configuration : Ollama / llama.cpp / OpenAI -->
+            <div id="section-external-config" class="engine-subconfig" style="display: none;">
+              <!-- Architecture Info -->
+              <div class="arch-info-box">
+                <div class="arch-row">
+                  <strong>Appareil détecté :</strong> <span id="arch-device-name">Détection...</span>
+                </div>
+                <div class="arch-row">
+                  <strong>CPU & Architecture :</strong> <span id="arch-cpu-name">...</span>
+                </div>
+                <div class="arch-row">
+                  <strong>Binaire llama.cpp adapté :</strong> <span id="arch-engine-name">...</span>
+                </div>
+              </div>
+
+              <!-- Presets -->
+              <div class="settings-group">
+                <label class="group-title">⚡ Préréglages rapides d'adresse :</label>
+                <div class="presets-grid">
+                  <button type="button" class="btn-preset" data-url="http://127.0.0.1:11434" data-type="ollama">
+                    📱 Ollama Local (Termux Port 11434)
+                  </button>
+                  <button type="button" class="btn-preset" data-url="http://127.0.0.1:8080" data-type="openai">
+                    🤖 PocketPal AI (Port 8080)
+                  </button>
+                  <button type="button" class="btn-preset" data-url="http://192.168.1.50:11434" data-type="ollama">
+                    💻 Ollama PC Windows (LAN WiFi)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Endpoint & Models -->
+              <div class="settings-group">
+                <label for="setting-endpoint" class="group-title">Adresse API du Serveur LLM</label>
+                <input type="url" id="setting-endpoint" placeholder="http://127.0.0.1:11434 ou http://192.168.1.X:11434" />
+              </div>
+
+              <div class="settings-group">
+                <label for="setting-api-type" class="group-title">Protocole API</label>
+                <select id="setting-api-type">
+                  <option value="ollama">Ollama (/api/chat, /api/tags)</option>
+                  <option value="openai">OpenAI / llama-server (/v1/chat/completions, /v1/models)</option>
+                </select>
+              </div>
+
+              <div class="settings-group">
+                <div class="field-split">
+                  <button type="button" id="btn-test-connection" class="btn btn-secondary">
+                    🔄 Tester la connexion & lister les modèles
+                  </button>
+                </div>
+                <div id="test-conn-result" class="test-result-box"></div>
+              </div>
+
+              <div class="settings-group">
+                <label for="setting-model" class="group-title">Modèle LLM sur le serveur</label>
+                <select id="setting-model">
+                  <option value="llama3.2:1b">llama3.2:1b (Recommandé smartphone)</option>
+                  <option value="llama3.2:3b">llama3.2:3b (Équilibré S25 Ultra / PC)</option>
+                  <option value="qwen2.5:3b">qwen2.5:3b (Précis)</option>
+                  <option value="mistral:7b">mistral:7b (Complet PC)</option>
+                </select>
+              </div>
+
+              <!-- Terminal Command helper -->
+              <div class="arch-cmd-box">
+                <div class="arch-cmd-header">
+                  <span id="arch-cmd-title">Commande Termux / Terminal pour démarrer Ollama :</span>
+                  <button type="button" id="btn-copy-arch-cmd" class="btn-sm btn-icon" title="Copier la commande">📋 Copier</button>
+                </div>
+                <pre id="arch-cmd-text">pkg install ollama&#10;ollama serve &amp;&#10;ollama run llama3.2:1b</pre>
+              </div>
             </div>
 
-            <div class="settings-group">
+            <!-- Paramètres partagés : Température & Prompt -->
+            <div class="settings-group" style="margin-top: 18px;">
               <label for="setting-temp" class="group-title">
                 Température : <span id="setting-temp-val">0.7</span>
               </label>
@@ -265,20 +326,14 @@
             </div>
           </div>
 
-          <!-- Documentation & CORS Help -->
+          <!-- Documentation & Aide -->
           <div class="help-box">
-            <h3>📖 Guide d'Installation Hors-Ligne & Moteurs</h3>
-            <h4>1. Sur Smartphone Android (Samsung S25 Ultra) :</h4>
-            <p>Le processeur Snapdragon 8 Elite et ses 12 Go de RAM permettent d'exécuter localement des modèles 1B à 3B sans aucune connexion :</p>
-            <ul>
-              <li><strong>Option Termux (Ollama) :</strong> Téléchargez Termux depuis F-Droid, tapez <code>pkg install ollama</code>, puis lancez <code>ollama run llama3.2:1b</code>. L'adresse est <code>http://127.0.0.1:11434</code>.</li>
-              <li><strong>Option llama-server :</strong> Compilez ou téléchargez le binaire <code>llama-server</code> ARM64 de llama.cpp avec support Vulkan pour exploiter le GPU Adreno 830.</li>
-              <li><strong>Option PocketPal AI :</strong> Installez l'APK PocketPal AI, chargez un modèle GGUF et cochez « Start Local API » sur le port 8080.</li>
-            </ul>
+            <h3>📖 Guide des Moteurs IA</h3>
+            <h4>1. Mode WebGPU Embarqué (Recommandé par défaut) :</h4>
+            <p>Ce mode utilise directement le processeur graphique de votre smartphone ou PC (comme l'Adreno 830 du Galaxy S25 Ultra). Il ne nécessite <strong>aucun terminal, aucun Termux, et aucune application externe</strong>. Le modèle se télécharge une fois dans le cache et fonctionne à vie en mode avion.</p>
 
-            <h4>2. Sur PC Windows connecté au Smartphone (WiFi / Hotspot) :</h4>
-            <p>Si vous souhaitez faire tourner un modèle plus lourd (ex: 8B ou 14B) sur votre PC et l'interroger depuis le smartphone :</p>
-            <pre>set OLLAMA_HOST=0.0.0.0<br/>set OLLAMA_ORIGINS=*<br/>ollama serve</pre>
+            <h4>2. Mode Ollama / llama.cpp Natif (Pour utilisateurs avancés) :</h4>
+            <p>Si vous souhaitez faire tourner un modèle plus lourd (3B ou 7B) avec les performances C++ maximales, installez Ollama dans <strong>Termux</strong> sur Android ou sur votre PC Windows partagé sur le WiFi local (avec <code>set OLLAMA_HOST=0.0.0.0</code>).</p>
           </div>
         </div>
       </section>
