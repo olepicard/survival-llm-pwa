@@ -1,11 +1,15 @@
 /**
  * Main Application Controller for Survival LLM PWA
+ * Orchestrates local offline guides, storage capacity management,
+ * device architecture detection (Android ARM64 / Snapdragon vs Windows x86_64),
+ * and local LLM chat streaming.
  */
 
 import { LLMClient } from './api.js';
 import { GuidesDB } from './db.js';
 import { EmergencyManager } from './emergency.js';
 import { RAGEngine } from './rag.js';
+import { ArchitectureDetector } from './arch.js';
 import { renderMarkdown, escapeHtml } from './markdown.js';
 
 class SurvivalApp {
@@ -14,11 +18,13 @@ class SurvivalApp {
     this.db = new GuidesDB();
     this.emergency = new EmergencyManager(this);
     this.rag = new RAGEngine(this.db, this.emergency);
+    this.arch = new ArchitectureDetector();
 
     this.activeTab = 'chat';
     this.chatHistory = []; // { role: 'user'|'assistant', content: string }
     this.currentAbortController = null;
     this.deferredInstallPrompt = null;
+    this.isDownloadingGuides = false;
 
     this.init();
   }
@@ -30,6 +36,7 @@ class SurvivalApp {
     this.setupSettingsUI();
     this.setupChatUI();
     this.setupGuidesUI();
+    this.setupStorageUI();
 
     // Load data
     await this.emergency.loadProtocols();
@@ -39,10 +46,17 @@ class SurvivalApp {
     this.renderGuidesThemeSelector();
     this.searchAndRenderGuides();
 
+    // Check storage & offline status
+    await this.updateStorageStatusUI();
+    this.checkInitialStoragePrompt();
+
     // Check network status
     this.updateOnlineStatus();
     window.addEventListener('online', () => this.updateOnlineStatus());
     window.addEventListener('offline', () => this.updateOnlineStatus());
+
+    // Detect hardware architecture & update UI
+    this.initArchitectureDisplay();
   }
 
   setupServiceWorker() {
@@ -82,11 +96,250 @@ class SurvivalApp {
     const badge = document.getElementById('status-badge');
     if (!badge) return;
     if (navigator.onLine) {
-      badge.textContent = 'En ligne (WiFi/4G)';
+      badge.textContent = 'En ligne';
       badge.className = 'status-badge online';
     } else {
-      badge.textContent = 'Hors-ligne (Local)';
+      badge.textContent = 'Hors-ligne (Avion)';
       badge.className = 'status-badge offline';
+    }
+  }
+
+  /* ---------------- Storage Management ---------------- */
+
+  async updateStorageStatusUI() {
+    const stats = await this.db.getStorageStats();
+    const modeBadge = document.getElementById('storage-mode-badge');
+    const statusPill = document.getElementById('storage-status-pill');
+    const usageText = document.getElementById('storage-usage-text');
+    const quotaText = document.getElementById('storage-quota-text');
+    const meterFill = document.getElementById('storage-meter-fill');
+    const persistHint = document.getElementById('storage-persistence-hint');
+    const promptDeviceStats = document.getElementById('prompt-device-stats');
+
+    const isFull = stats.isFullOffline;
+
+    // Header badge
+    if (modeBadge) {
+      if (isFull) {
+        modeBadge.textContent = 'Full Hors-Ligne (16 Mo) ✅';
+        modeBadge.className = 'badge-pill badge-success';
+      } else {
+        modeBadge.textContent = 'Mode Partiel (1.5 Mo) ⚠️';
+        modeBadge.className = 'badge-pill badge-warning';
+      }
+    }
+
+    // Settings card status pill
+    if (statusPill) {
+      if (isFull) {
+        statusPill.textContent = 'Complet (670 guides prêts)';
+        statusPill.className = 'badge-pill badge-success';
+      } else {
+        statusPill.textContent = 'Partiel (Index + SOS)';
+        statusPill.className = 'badge-pill badge-warning';
+      }
+    }
+
+    // Usage & Quota text
+    if (usageText) {
+      usageText.textContent = `Stockage PWA : ${stats.usageMB} Mo utilisés`;
+    }
+    if (quotaText) {
+      if (stats.availableMB > 1024) {
+        const gb = (stats.availableMB / 1024).toFixed(1);
+        quotaText.textContent = `Disque libre : ~${gb} Go`;
+      } else {
+        quotaText.textContent = `Disque libre : ~${stats.availableMB} Mo`;
+      }
+    }
+
+    if (meterFill) {
+      meterFill.style.width = `${Math.max(2, stats.percent)}%`;
+    }
+
+    if (persistHint) {
+      persistHint.textContent = stats.persisted
+        ? '🔒 Stockage persistant accordé (Android ne supprimera pas vos guides).'
+        : '⚠️ Stockage persistant non verrouillé (cliquez pour sécuriser les données).';
+    }
+
+    if (promptDeviceStats) {
+      const avail = stats.availableMB > 1024 ? `${(stats.availableMB / 1024).toFixed(1)} Go` : `${stats.availableMB} Mo`;
+      promptDeviceStats.innerHTML = `<strong>Capacité testée :</strong> ${avail} libres sur votre appareil • <em>Requis pour Full : ~16 Mo</em>`;
+    }
+
+    return stats;
+  }
+
+  async checkInitialStoragePrompt() {
+    const hasPrompted = localStorage.getItem('storage_prompt_shown');
+    const isFull = await this.db.isFullOfflineReady();
+
+    // If never prompted and not yet full offline, offer choice to user
+    if (!hasPrompted && !isFull) {
+      const modal = document.getElementById('storage-prompt-modal');
+      if (modal && typeof modal.showModal === 'function') {
+        modal.showModal();
+      }
+    }
+  }
+
+  setupStorageUI() {
+    const promptModal = document.getElementById('storage-prompt-modal');
+    const btnPromptFull = document.getElementById('btn-prompt-download-full');
+    const btnPromptPartial = document.getElementById('btn-prompt-keep-partial');
+    const btnDownloadFull = document.getElementById('btn-download-full-offline');
+    const btnSwitchPartial = document.getElementById('btn-switch-partial-mode');
+    const btnReqPersistence = document.getElementById('btn-request-persistence');
+
+    // Prompt Modal: Download Full
+    if (btnPromptFull) {
+      btnPromptFull.addEventListener('click', async () => {
+        await this.triggerFullDownload('prompt');
+      });
+    }
+
+    // Prompt Modal: Keep Partial
+    if (btnPromptPartial) {
+      btnPromptPartial.addEventListener('click', () => {
+        localStorage.setItem('storage_prompt_shown', 'true');
+        localStorage.setItem('storage_offline_mode', 'partial');
+        if (promptModal) promptModal.close();
+        this.updateStorageStatusUI();
+      });
+    }
+
+    // Settings Card: Download Full
+    if (btnDownloadFull) {
+      btnDownloadFull.addEventListener('click', async () => {
+        await this.triggerFullDownload('settings');
+      });
+    }
+
+    // Settings Card: Switch to Partial
+    if (btnSwitchPartial) {
+      btnSwitchPartial.addEventListener('click', async () => {
+        if (confirm('Voulez-vous libérer le cache des 670 guides intégraux et revenir au Mode Partiel (~1.5 Mo) ?')) {
+          await this.db.clearFullGuidesCache();
+          await this.updateStorageStatusUI();
+          this.searchAndRenderGuides();
+          alert('Mode Partiel activé. Les résumés et fiches SOS restent disponibles hors-ligne.');
+        }
+      });
+    }
+
+    // Settings Card: Request Persistence
+    if (btnReqPersistence) {
+      btnReqPersistence.addEventListener('click', async () => {
+        const granted = await this.db.requestPersistence();
+        if (granted) {
+          alert('✅ Stockage persistant accordé par le système !');
+        } else {
+          alert('ℹ️ Persistance automatique gérée par le navigateur.');
+        }
+        await this.updateStorageStatusUI();
+      });
+    }
+  }
+
+  async triggerFullDownload(source = 'settings') {
+    if (this.isDownloadingGuides) return;
+    this.isDownloadingGuides = true;
+
+    const progressContainer = source === 'prompt'
+      ? document.getElementById('prompt-download-progress-container')
+      : document.getElementById('storage-download-progress-container');
+    const statusText = source === 'prompt'
+      ? document.getElementById('prompt-progress-status-text')
+      : document.getElementById('storage-progress-status-text');
+    const percentText = source === 'prompt'
+      ? document.getElementById('prompt-progress-percent-text')
+      : document.getElementById('storage-progress-percent-text');
+    const fillEl = source === 'prompt'
+      ? document.getElementById('prompt-download-fill')
+      : document.getElementById('storage-download-fill');
+
+    if (progressContainer) progressContainer.style.display = 'block';
+
+    try {
+      await this.db.downloadAllGuides((info) => {
+        if (statusText) statusText.textContent = info.status;
+        if (percentText) percentText.textContent = `${info.percent}%`;
+        if (fillEl) fillEl.style.width = `${info.percent}%`;
+      });
+
+      localStorage.setItem('storage_prompt_shown', 'true');
+      await this.updateStorageStatusUI();
+
+      setTimeout(() => {
+        if (progressContainer) progressContainer.style.display = 'none';
+        if (source === 'prompt') {
+          const modal = document.getElementById('storage-prompt-modal');
+          if (modal) modal.close();
+        }
+        alert('🎉 Mode Full Hors-Ligne activé ! Tous les 670 guides sont enregistrés sur votre appareil.');
+      }, 1000);
+
+    } catch (err) {
+      console.error('Download error:', err);
+      if (statusText) statusText.textContent = `Erreur: ${err.message}`;
+      alert(`Erreur lors du téléchargement des guides : ${err.message}\nVérifiez votre connexion Internet pour le téléchargement initial.`);
+    } finally {
+      this.isDownloadingGuides = false;
+    }
+  }
+
+  /* ---------------- Architecture & Target Engine ---------------- */
+
+  async initArchitectureDisplay() {
+    try {
+      const archInfo = await this.arch.detect();
+      const archBadge = document.getElementById('arch-badge-pill');
+      const devName = document.getElementById('arch-device-name');
+      const cpuName = document.getElementById('arch-cpu-name');
+      const gpuName = document.getElementById('arch-gpu-name');
+      const engineName = document.getElementById('arch-engine-name');
+      const cmdText = document.getElementById('arch-cmd-text');
+      const copyBtn = document.getElementById('btn-copy-arch-cmd');
+
+      if (archBadge) {
+        archBadge.textContent = archInfo.engine.targetName;
+      }
+      if (devName) {
+        devName.textContent = archInfo.model || `${archInfo.platform} (${archInfo.arch})`;
+      }
+      if (cpuName) {
+        cpuName.textContent = `${archInfo.arch.toUpperCase()} (${archInfo.bitness} bits)`;
+      }
+      if (gpuName) {
+        gpuName.textContent = archInfo.gpu || 'Accélération matérielle standard';
+      }
+      if (engineName) {
+        engineName.textContent = archInfo.engine.ollamaBinary;
+      }
+
+      // Populate command text
+      if (cmdText && archInfo.engine.launchCommands && archInfo.engine.launchCommands[0]) {
+        cmdText.textContent = archInfo.engine.launchCommands[0].cmd;
+      }
+
+      if (copyBtn && cmdText) {
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(cmdText.textContent).then(() => {
+            copyBtn.textContent = '✅ Copié !';
+            setTimeout(() => { copyBtn.textContent = '📋 Copier'; }, 2000);
+          });
+        });
+      }
+
+      // If Android ARM64, pre-select 1b model in dropdown if user hasn't set one
+      if (archInfo.isAndroid && !localStorage.getItem('llm_model')) {
+        const modelSelect = document.getElementById('setting-model');
+        if (modelSelect) modelSelect.value = 'llama3.2:1b';
+      }
+
+    } catch (e) {
+      console.warn('Erreur détection architecture:', e);
     }
   }
 
@@ -111,9 +364,10 @@ class SurvivalApp {
       btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
     });
 
-    // Auto-scroll to bottom of chat if switching to chat
     if (tabName === 'chat') {
       this.scrollChatToBottom();
+    } else if (tabName === 'settings') {
+      this.updateStorageStatusUI();
     }
   }
 
@@ -142,7 +396,6 @@ class SurvivalApp {
         this.sendChatMessage(text);
       });
 
-      // Enter to send (Shift+Enter for newline)
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
@@ -269,7 +522,6 @@ class SurvivalApp {
 
     // 4. Construct messages array for LLM
     const apiMessages = this.chatHistory.map(m => ({ ...m }));
-    // Append RAG context to the last user message
     if (ragResult.contextText) {
       apiMessages[apiMessages.length - 1].content += ragResult.contextText;
     }
@@ -318,14 +570,11 @@ class SurvivalApp {
             ${escapeHtml(err.message)}
           </div>
           <div class="error-help">
-            <p>💡 <strong>Conseils de dépannage :</strong></p>
+            <p>💡 <strong>Conseils de démarrage du moteur local :</strong></p>
             <ul>
-              <li>Vérifiez dans l'onglet <strong>⚙️ Réglages</strong> que l'adresse du serveur est exacte.</li>
-              <li>Si vous utilisez <strong>Ollama sur PC</strong> depuis votre smartphone Android, lancez Ollama avec l'autorisation réseau :
-                <pre>set OLLAMA_ORIGINS=*<br/>set OLLAMA_HOST=0.0.0.0<br/>ollama serve</pre>
-              </li>
-              <li>Si vous utilisez <strong>Ollama sur Android</strong> (via Termux), vérifiez que le serveur est démarré sur <code>127.0.0.1:11434</code>.</li>
-              <li>Si vous utilisez <strong>Edge Gallery ou PocketPal AI</strong>, activez le mode API OpenAI et port 8080/5000.</li>
+              <li><strong>Sur Android (Samsung S25 Ultra) :</strong> Dans Termux, lancez <code>ollama serve &</code> puis <code>ollama run llama3.2:1b</code>. L'adresse est <code>http://127.0.0.1:11434</code>.</li>
+              <li><strong>Avec llama-server / PocketPal :</strong> Vérifiez que le serveur écoute sur le port <code>8080</code> ou <code>11434</code>.</li>
+              <li><strong>Sur PC Windows distant :</strong> Lancez Ollama avec <code>set OLLAMA_HOST=0.0.0.0</code> et <code>set OLLAMA_ORIGINS=*</code> pour autoriser le smartphone via le WiFi.</li>
             </ul>
           </div>
         `;
@@ -444,20 +693,46 @@ class SurvivalApp {
 
     const article = await this.db.getArticle(id);
     if (!article) {
-      bodyEl.innerHTML = '<div class="alert alert-error">Impossible de charger le document demandé.</div>';
+      bodyEl.innerHTML = '<div class="alert alert-error">Document non trouvé dans l\'index local.</div>';
       return;
     }
 
     titleEl.textContent = article.title;
+
+    let partialBanner = '';
+    if (article.isPartial) {
+      partialBanner = `
+        <div class="alert alert-warning" style="margin-bottom: 16px;">
+          <span>📦 Ce guide est affiché en <strong>Mode Partiel</strong> (résumé).</span>
+          <button type="button" class="btn btn-sm btn-primary" id="btn-modal-dl-full" style="margin-top: 8px;">
+            📥 Télécharger le Pack Complet (16 Mo)
+          </button>
+        </div>
+      `;
+    }
+
     bodyEl.innerHTML = `
       <div class="article-meta-banner">
         <span><strong>Source :</strong> ${escapeHtml(article.source_label)}</span>
         ${article.url ? ` • <a href="${article.url}" target="_blank" rel="noopener">Lien d'origine ↗</a>` : ''}
       </div>
+      ${partialBanner}
       <div class="markdown-content">
         ${renderMarkdown(article.body)}
       </div>
     `;
+
+    // Connect in-modal download button if partial
+    const dlBtn = bodyEl.querySelector('#btn-modal-dl-full');
+    if (dlBtn) {
+      dlBtn.addEventListener('click', async () => {
+        dlBtn.disabled = true;
+        dlBtn.textContent = 'Téléchargement en cours...';
+        await this.triggerFullDownload('settings');
+        // Reload current article
+        this.openGuideViewer(id);
+      });
+    }
   }
 
   /* ---------------- Settings UI ---------------- */
@@ -503,7 +778,6 @@ class SurvivalApp {
         testResultEl.className = 'test-result-box loading';
         testResultEl.innerHTML = '🔄 Tentative de connexion au serveur LLM...';
 
-        // Apply input values temporarily for testing
         this.api.saveSettings({
           endpoint: endpointInput.value,
           apiType: apiTypeSelect.value
@@ -517,7 +791,6 @@ class SurvivalApp {
             Modèles disponibles : ${res.models.join(', ')}
           `;
 
-          // Populate model selector
           if (modelSelect && res.models.length) {
             modelSelect.innerHTML = res.models.map(m => `<option value="${m}">${m}</option>`).join('');
             if (res.models.includes(this.api.model)) {

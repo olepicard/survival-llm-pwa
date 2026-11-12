@@ -1,4 +1,4 @@
-const CACHE_NAME = 'survival-llm-v1.0';
+const CACHE_NAME = 'survival-llm-v2.0';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -42,7 +42,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // NEVER intercept or cache external LLM API calls (Ollama, OpenAI, Edge Gallery)
+  // NEVER intercept or cache external LLM API calls (Ollama, OpenAI, Edge Gallery, LocalAI)
   if (
     url.port === '11434' ||
     url.port === '8080' ||
@@ -53,18 +53,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for dynamic guides json bundles to save bandwidth, fallback to cache
+  // Cache-first for all guide data files: ensures immediate offline availability without delays
   if (url.pathname.includes('/data/guides_')) {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const respClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, respClone));
-          }
-          return response;
-        })
-        .catch(() => caches.match(event.request))
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              const respClone = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, respClone));
+            }
+            return networkResponse;
+          })
+          .catch(() => {
+            // If offline and bundle not cached, return index fallback if possible
+            return caches.match('./data/guides_index.json');
+          });
+      })
     );
     return;
   }
@@ -84,6 +92,11 @@ self.addEventListener('fetch', (event) => {
           cache.put(event.request, responseToCache);
         });
         return networkResponse;
+      }).catch(() => {
+        // Fallback for HTML navigation when offline
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
       });
     })
   );

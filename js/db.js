@@ -1,9 +1,12 @@
 /**
  * Local Offline Guides & IndexedDB Database Manager
+ * Supports Full Offline (~16 MB) and Partial (~1.5 MB) storage modes,
+ * disk capacity estimation, persistence requests, and graceful offline fallback.
  */
 
 const DB_NAME = 'SurvivalGuidesDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+export const THEME_BUNDLES = ['survival', 'medical', 'food', 'tech'];
 
 export class GuidesDB {
   constructor() {
@@ -18,7 +21,7 @@ export class GuidesDB {
   }
 
   _initIndexedDB() {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
       request.onupgradeneeded = (e) => {
         const db = e.target.result;
@@ -34,12 +37,15 @@ export class GuidesDB {
         resolve(this.db);
       };
       request.onerror = (e) => {
-        console.warn('IndexedDB unavailable, falling back to in-memory store:', e);
+        console.warn('IndexedDB indisponible, repli mémoire:', e);
         resolve(null);
       };
     });
   }
 
+  /**
+   * Load the master index of 670 guides (~311 KB)
+   */
   async loadIndex() {
     if (this.indexData) return this.indexData;
 
@@ -52,7 +58,7 @@ export class GuidesDB {
           return this.indexData;
         }
       } catch (err) {
-        console.warn('Could not read index from IndexedDB', err);
+        console.warn('Erreur lecture index IndexedDB:', err);
       }
     }
 
@@ -68,7 +74,7 @@ export class GuidesDB {
       }
       return this.indexData;
     } catch (err) {
-      console.error('Failed to load guides index:', err);
+      console.error('Échec de chargement de guides_index.json:', err);
       return { themes: {}, count: 0, guides: [] };
     }
   }
@@ -76,7 +82,7 @@ export class GuidesDB {
   /**
    * Search guides by keyword and optional theme
    */
-  async searchGuides(query = '', themeFilter = 'all', limit = 50) {
+  async searchGuides(query = '', themeFilter = 'all', limit = 60) {
     const index = await this.loadIndex();
     if (!index || !index.guides) return [];
 
@@ -103,6 +109,7 @@ export class GuidesDB {
 
   /**
    * Load the full article content by ID
+   * Guarantees NO blocking error: falls back gracefully to index summary if bundle isn't cached.
    */
   async getArticle(id) {
     const numId = parseInt(id, 10);
@@ -113,39 +120,267 @@ export class GuidesDB {
         const cached = await this._getFromStore('articles', numId);
         if (cached) return cached;
       } catch (err) {
-        console.warn('IndexedDB article read error:', err);
+        console.warn('Erreur lecture article IndexedDB:', err);
       }
     }
 
     // 2. Determine theme from index
     const index = await this.loadIndex();
-    const meta = index.guides.find(g => g.id === numId);
+    const meta = (index.guides || []).find(g => g.id === numId);
     const theme = meta ? meta.theme : 'survival';
 
-    // 3. Load theme bundle if needed
-    if (!this.cachedThemeBundles[theme]) {
-      try {
-        const res = await fetch(`./data/guides_${theme}.json`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        this.cachedThemeBundles[theme] = await res.json();
+    // 3. Try to load from theme bundle if available in memory
+    if (this.cachedThemeBundles[theme] && this.cachedThemeBundles[theme][numId.toString()]) {
+      return this.cachedThemeBundles[theme][numId.toString()];
+    }
 
-        // Background store into IndexedDB
+    // 4. Try network fetch or cache
+    try {
+      const res = await fetch(`./data/guides_${theme}.json`);
+      if (res.ok) {
+        const bundle = await res.json();
+        this.cachedThemeBundles[theme] = bundle;
+
+        // Save entire bundle to IndexedDB asynchronously
         if (this.db) {
-          const docs = this.cachedThemeBundles[theme];
           const tx = this.db.transaction('articles', 'readwrite');
           const store = tx.objectStore('articles');
-          for (const key of Object.keys(docs)) {
-            store.put(docs[key]);
+          for (const key of Object.keys(bundle)) {
+            store.put(bundle[key]);
           }
         }
-      } catch (err) {
-        console.error(`Failed to load guides_${theme}.json:`, err);
-        return null;
+
+        const doc = bundle[numId.toString()];
+        if (doc) return doc;
+      }
+    } catch (err) {
+      console.warn(`Mode hors-ligne: impossible de télécharger guides_${theme}.json (${err.message}). Utilisation du repli local.`);
+    }
+
+    // 5. GRACEFUL FALLBACK (Eliminates "Impossible de charger le document" error)
+    if (meta) {
+      return {
+        id: numId,
+        title: meta.title,
+        theme: meta.theme,
+        source_label: meta.source_label,
+        url: meta.url || '',
+        isPartial: true,
+        body: `> [!NOTE]\n> **Mode Hors-Ligne Partiel Actif**\n> Le texte complet (${meta.theme}) n'a pas encore été téléchargé dans la mémoire de votre appareil.\n\n### 📋 Fiche résumé disponible hors-ligne :\n${meta.snippet || 'Aucun extrait disponible.'}\n\n---\n\n**💡 Pour lire l'intégralité du guide sans aucune connexion Internet :**\nAllez dans l'onglet **⚙️ Réglages** > **Gestionnaire de Stockage** et cliquez sur **« Télécharger le pack Full Hors-Ligne (16 Mo) »**.`
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Check storage quota and estimate capacity on smartphone/PC
+   * @returns {Promise<{supported: boolean, quotaMB: number, usageMB: number, availableMB: number, percent: number, persisted: boolean, isFullOffline: boolean}>}
+   */
+  async getStorageStats() {
+    let supported = false;
+    let quotaMB = 0;
+    let usageMB = 0;
+    let availableMB = 0;
+    let percent = 0;
+    let persisted = false;
+
+    if (navigator.storage && navigator.storage.estimate) {
+      try {
+        supported = true;
+        const estimate = await navigator.storage.estimate();
+        const quotaBytes = estimate.quota || 0;
+        const usageBytes = estimate.usage || 0;
+
+        quotaMB = Math.round(quotaBytes / (1024 * 1024));
+        usageMB = parseFloat((usageBytes / (1024 * 1024)).toFixed(1));
+        availableMB = Math.max(0, quotaMB - usageMB);
+        percent = quotaBytes > 0 ? Math.min(100, Math.round((usageBytes / quotaBytes) * 100)) : 0;
+      } catch (e) {
+        console.warn('Erreur estimation stockage:', e);
       }
     }
 
-    const doc = this.cachedThemeBundles[theme][numId.toString()];
-    return doc || null;
+    if (navigator.storage && navigator.storage.persisted) {
+      try {
+        persisted = await navigator.storage.persisted();
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    const isFullOffline = await this.isFullOfflineReady();
+
+    return {
+      supported,
+      quotaMB,
+      usageMB,
+      availableMB,
+      percent,
+      persisted,
+      isFullOffline
+    };
+  }
+
+  /**
+   * Request persistent storage to prevent Android/browser auto-eviction
+   */
+  async requestPersistence() {
+    if (navigator.storage && navigator.storage.persist) {
+      try {
+        return await navigator.storage.persist();
+      } catch (e) {
+        console.warn('Erreur persistance stockage:', e);
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if all guide bundles are present in IndexedDB
+   */
+  async isFullOfflineReady() {
+    if (!this.db) {
+      const mode = localStorage.getItem('storage_offline_mode');
+      return mode === 'full';
+    }
+
+    try {
+      const count = await this._countStore('articles');
+      // If we have >= 600 articles cached, full offline is active
+      if (count >= 600) return true;
+
+      const metaFull = await this._getFromStore('meta', 'full_offline_ready');
+      if (metaFull && metaFull.value) return true;
+    } catch (e) {
+      console.warn('Erreur verification cache complet:', e);
+    }
+    return localStorage.getItem('storage_offline_mode') === 'full';
+  }
+
+  /**
+   * Count items in an IndexedDB store
+   */
+  _countStore(storeName) {
+    return new Promise((resolve) => {
+      if (!this.db) return resolve(0);
+      try {
+        const tx = this.db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const req = store.count();
+        req.onsuccess = () => resolve(req.result || 0);
+        req.onerror = () => resolve(0);
+      } catch {
+        resolve(0);
+      }
+    });
+  }
+
+  /**
+   * Download all 4 theme bundles and store them permanently
+   * @param {Function} onProgress - ({ theme, current, total, percent, status })
+   */
+  async downloadAllGuides(onProgress) {
+    const bundles = [
+      { theme: 'survival', title: 'Survie & Bivouac', approxMB: 6.6 },
+      { theme: 'medical', title: 'Secourisme & Médical', approxMB: 7.0 },
+      { theme: 'tech', title: 'Technique & Radio', approxMB: 1.2 },
+      { theme: 'food', title: 'Eau & Alimentation', approxMB: 0.4 }
+    ];
+
+    let totalArticlesSaved = 0;
+    const totalBundles = bundles.length;
+
+    // Request persistence first
+    await this.requestPersistence();
+
+    for (let i = 0; i < bundles.length; i++) {
+      const b = bundles[i];
+      if (onProgress) {
+        onProgress({
+          theme: b.theme,
+          title: b.title,
+          current: i + 1,
+          total: totalBundles,
+          percent: Math.round((i / totalBundles) * 100),
+          status: `Téléchargement du pack ${b.title} (~${b.approxMB} Mo)...`
+        });
+      }
+
+      const url = `./data/guides_${b.theme}.json`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Échec de téléchargement de ${b.theme}: HTTP ${res.status}`);
+
+      const data = await res.json();
+      this.cachedThemeBundles[b.theme] = data;
+
+      // Put into CacheStorage if available
+      if ('caches' in window) {
+        try {
+          const cache = await caches.open('survival-llm-v2.0');
+          const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+          await cache.put(url, new Response(blob, {
+            headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=31536000' }
+          }));
+        } catch (e) {
+          console.warn('CacheStorage put error:', e);
+        }
+      }
+
+      // Put into IndexedDB
+      if (this.db) {
+        await new Promise((resolve, reject) => {
+          const tx = this.db.transaction('articles', 'readwrite');
+          const store = tx.objectStore('articles');
+          for (const key of Object.keys(data)) {
+            store.put(data[key]);
+            totalArticlesSaved++;
+          }
+          tx.oncomplete = () => resolve();
+          tx.onerror = (e) => reject(e);
+        });
+      }
+    }
+
+    // Mark completed in meta & localStorage
+    if (this.db) {
+      await this._putToStore('meta', { key: 'full_offline_ready', value: true, date: Date.now() });
+    }
+    localStorage.setItem('storage_offline_mode', 'full');
+
+    if (onProgress) {
+      onProgress({
+        theme: 'all',
+        title: 'Terminé',
+        current: totalBundles,
+        total: totalBundles,
+        percent: 100,
+        status: `✅ 670 guides complets enregistrés avec succès (${totalArticlesSaved} articles) !`
+      });
+    }
+
+    return totalArticlesSaved;
+  }
+
+  /**
+   * Clear full guide bodies from IndexedDB to revert to Partial mode (~1.5 MB)
+   */
+  async clearFullGuidesCache() {
+    if (this.db) {
+      await new Promise((resolve) => {
+        const tx = this.db.transaction('articles', 'readwrite');
+        const store = tx.objectStore('articles');
+        const req = store.clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve();
+      });
+      await this._putToStore('meta', { key: 'full_offline_ready', value: false });
+    }
+
+    this.cachedThemeBundles = {};
+    localStorage.setItem('storage_offline_mode', 'partial');
+    return true;
   }
 
   normalize(str) {

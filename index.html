@@ -32,6 +32,7 @@
           <h1>Survival LLM</h1>
           <div class="header-sub">
             <span id="status-badge" class="status-badge">Initialisation...</span>
+            <span id="storage-mode-badge" class="badge-pill badge-neutral">Mode Stockage...</span>
           </div>
         </div>
       </div>
@@ -42,7 +43,7 @@
           <span class="rag-label">RAG Local</span>
         </label>
         <button id="btn-install-pwa" class="btn btn-sm btn-install" style="display: none;">
-          📲 Installer l'App
+          📲 Installer
         </button>
       </div>
     </header>
@@ -55,7 +56,7 @@
           <div class="chat-welcome">
             <div class="welcome-icon">🛡️</div>
             <h3>Assistant de Survie & Secourisme</h3>
-            <p>Assistant d'urgence connecté à votre moteur LLM local (Ollama ou compatible OpenAI sur S25 Ultra / PC).</p>
+            <p>Assistant d'urgence connecté à votre moteur LLM local (Ollama ou llama.cpp adapté à votre appareil).</p>
             <div class="quick-prompts">
               <button class="btn-prompt-chip" data-q="Comment purifier de l'eau suspecte en milieu sauvage sans matériel ?">💧 Purification d'eau d'urgence</button>
               <button class="btn-prompt-chip" data-q="Quelles sont les étapes pour poser un garrot tourniquet sur une hémorragie ?">🩸 Garrot & Hémorragie grave</button>
@@ -105,100 +106,179 @@
         <div id="guides-list-container" class="guides-list"></div>
       </section>
 
-      <!-- TAB 4: RÉGLAGES & CONNEXION LLM -->
+      <!-- TAB 4: RÉGLAGES, STOCKAGE & CONNEXION LLM -->
       <section id="tab-settings" class="tab-view">
         <div class="settings-container">
-          <h2>Configuration LLM Local</h2>
-          <p class="settings-desc">
-            Connectez votre PWA à votre serveur d'intelligence artificielle locale (aucun abonnement cloud requis).
-          </p>
 
-          <!-- Presets -->
-          <div class="settings-group">
-            <label class="group-title">⚡ Préréglages Rapides</label>
-            <div class="presets-grid">
-              <button type="button" class="btn-preset" data-url="http://192.168.1.50:11434" data-type="ollama">
-                💻 Ollama PC (WiFi LAN)
+          <!-- 1. GESTION DU STOCKAGE HORS-LIGNE -->
+          <div class="settings-card storage-card">
+            <div class="card-header">
+              <h3>💾 Gestionnaire de Stockage Hors-Ligne</h3>
+              <span id="storage-status-pill" class="badge-pill badge-neutral">Vérification...</span>
+            </div>
+            <p class="settings-desc">
+              Testez et configurez le stockage de votre smartphone pour garantir l'accès 100% hors-ligne aux 670 guides en mode avion.
+            </p>
+
+            <div class="storage-meter-box">
+              <div class="storage-meter-labels">
+                <span id="storage-usage-text">Espace utilisé : calcul...</span>
+                <span id="storage-quota-text">Espace libre : calcul...</span>
+              </div>
+              <div class="storage-progress-bar">
+                <div id="storage-meter-fill" class="progress-fill" style="width: 0%;"></div>
+              </div>
+              <small id="storage-persistence-hint" class="field-hint">Statut persistance : en attente.</small>
+            </div>
+
+            <div id="storage-download-progress-container" class="download-progress-box" style="display: none;">
+              <div class="progress-label-row">
+                <span id="storage-progress-status-text">Téléchargement en cours...</span>
+                <span id="storage-progress-percent-text">0%</span>
+              </div>
+              <div class="storage-progress-bar">
+                <div id="storage-download-fill" class="progress-fill progress-fill-active" style="width: 0%;"></div>
+              </div>
+            </div>
+
+            <div class="storage-actions-grid">
+              <button type="button" id="btn-download-full-offline" class="btn btn-primary">
+                📥 Télécharger le Pack Complet (16 Mo)
               </button>
-              <button type="button" class="btn-preset" data-url="http://127.0.0.1:11434" data-type="ollama">
-                📱 Ollama Local (Termux / PC)
+              <button type="button" id="btn-switch-partial-mode" class="btn btn-outline">
+                🧹 Mode Léger / Partiel (1.5 Mo)
               </button>
-              <button type="button" class="btn-preset" data-url="http://127.0.0.1:8080" data-type="openai">
-                🤖 Edge Gallery / PocketPal (Port 8080)
-              </button>
-              <button type="button" class="btn-preset" data-url="http://127.0.0.1:5000" data-type="openai">
-                ⚡ LocalAI / MLC (Port 5000)
+              <button type="button" id="btn-request-persistence" class="btn btn-secondary">
+                🔒 Verrouiller la Persistance
               </button>
             </div>
           </div>
 
-          <!-- Connection Form -->
-          <div class="settings-group">
-            <label for="setting-endpoint" class="group-title">Adresse API du Serveur LLM</label>
-            <input type="url" id="setting-endpoint" placeholder="http://127.0.0.1:11434 ou http://192.168.1.X:11434" required />
-            <small class="field-hint">Pour un S25 Ultra interrogeant votre PC Windows, entrez l'adresse IP locale de votre PC.</small>
+          <!-- 2. ARCHITECTURE CIBLE & MOTEUR LLM ADAPTÉ -->
+          <div class="settings-card arch-card">
+            <div class="card-header">
+              <h3>🎯 Architecture Matérielle & Moteur Local</h3>
+              <span id="arch-badge-pill" class="badge-pill badge-success">Détection...</span>
+            </div>
+            <p class="settings-desc">
+              Architecture détectée sur cet appareil et moteur d'inférence adapté d'après <a href="https://github.com/ollama/ollama/" target="_blank" rel="noopener">ollama/ollama (llama.cpp)</a>.
+            </p>
+
+            <div class="arch-info-box">
+              <div class="arch-row">
+                <strong>Appareil & Processeur :</strong> <span id="arch-device-name">Détection en cours...</span>
+              </div>
+              <div class="arch-row">
+                <strong>Architecture CPU :</strong> <span id="arch-cpu-name">...</span>
+              </div>
+              <div class="arch-row">
+                <strong>Accélérateur GPU :</strong> <span id="arch-gpu-name">...</span>
+              </div>
+              <div class="arch-row">
+                <strong>Moteur llama.cpp adapté :</strong> <span id="arch-engine-name">...</span>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <label class="group-title">⚡ Préréglages adaptés à votre architecture :</label>
+              <div class="presets-grid" id="arch-presets-container">
+                <button type="button" class="btn-preset" data-url="http://127.0.0.1:11434" data-type="ollama">
+                  📱 Ollama Local (Termux ARM64)
+                </button>
+                <button type="button" class="btn-preset" data-url="http://127.0.0.1:8080" data-type="openai">
+                  🤖 llama-server / PocketPal (Port 8080)
+                </button>
+                <button type="button" class="btn-preset" data-url="http://192.168.1.50:11434" data-type="ollama">
+                  💻 Ollama PC Windows (LAN WiFi)
+                </button>
+                <button type="button" class="btn-preset" data-url="http://127.0.0.1:5000" data-type="openai">
+                  ⚡ LocalAI / MLC (Port 5000)
+                </button>
+              </div>
+            </div>
+
+            <!-- Command block to launch on target -->
+            <div class="arch-cmd-box" id="arch-cmd-box">
+              <div class="arch-cmd-header">
+                <span id="arch-cmd-title">Commande de démarrage local :</span>
+                <button type="button" id="btn-copy-arch-cmd" class="btn-sm btn-icon" title="Copier la commande">📋 Copier</button>
+              </div>
+              <pre id="arch-cmd-text">pkg install ollama&#10;ollama serve &amp;&#10;ollama run llama3.2:1b</pre>
+            </div>
           </div>
 
-          <div class="settings-group">
-            <label for="setting-api-type" class="group-title">Protocole API</label>
-            <select id="setting-api-type">
-              <option value="ollama">Ollama (/api/chat, /api/tags)</option>
-              <option value="openai">OpenAI Compatible (/v1/chat/completions, /v1/models)</option>
-            </select>
-          </div>
+          <!-- 3. CONFIGURATION API & MODÈLE -->
+          <div class="settings-card">
+            <h3>⚙️ Paramètres de Connexion au Serveur LLM</h3>
 
-          <div class="settings-group">
-            <div class="field-split">
-              <button type="button" id="btn-test-connection" class="btn btn-secondary">
-                🔄 Tester la connexion & lister les modèles
+            <!-- Connection Form -->
+            <div class="settings-group">
+              <label for="setting-endpoint" class="group-title">Adresse du Serveur LLM (Loopback / LAN)</label>
+              <input type="url" id="setting-endpoint" placeholder="http://127.0.0.1:11434 ou http://192.168.1.X:11434" required />
+              <small class="field-hint">En local autonome sur Android : <code>http://127.0.0.1:11434</code> (Termux) ou port <code>8080</code>.</small>
+            </div>
+
+            <div class="settings-group">
+              <label for="setting-api-type" class="group-title">Protocole API</label>
+              <select id="setting-api-type">
+                <option value="ollama">Ollama (/api/chat, /api/tags)</option>
+                <option value="openai">OpenAI / llama-server (/v1/chat/completions, /v1/models)</option>
+              </select>
+            </div>
+
+            <div class="settings-group">
+              <div class="field-split">
+                <button type="button" id="btn-test-connection" class="btn btn-secondary">
+                  🔄 Tester la connexion & lister les modèles
+                </button>
+              </div>
+              <div id="test-conn-result" class="test-result-box"></div>
+            </div>
+
+            <div class="settings-group">
+              <label for="setting-model" class="group-title">Modèle LLM</label>
+              <select id="setting-model">
+                <option value="llama3.2:1b">llama3.2:1b (Recommandé ultra-rapide smartphone)</option>
+                <option value="llama3.2:3b">llama3.2:3b (Équilibré précision S25 Ultra / PC)</option>
+                <option value="qwen2.5:3b">qwen2.5:3b (Excellente précision)</option>
+                <option value="mistral:7b">mistral:7b (Complet pour PC)</option>
+              </select>
+            </div>
+
+            <div class="settings-group">
+              <label for="setting-temp" class="group-title">
+                Température : <span id="setting-temp-val">0.7</span>
+              </label>
+              <input type="range" id="setting-temp" min="0.1" max="1.5" step="0.1" value="0.7">
+              <small class="field-hint">0.2 - 0.5 : Réponses strictes et factuelles (recommandé survie/médical). 0.7 : Équilibré.</small>
+            </div>
+
+            <div class="settings-group">
+              <label for="setting-system-prompt" class="group-title">Prompt Système de Survie</label>
+              <textarea id="setting-system-prompt" rows="4"></textarea>
+            </div>
+
+            <div class="settings-actions">
+              <button type="button" id="btn-save-settings" class="btn btn-primary btn-block">
+                💾 Enregistrer les Réglages
               </button>
             </div>
-            <div id="test-conn-result" class="test-result-box"></div>
-          </div>
-
-          <div class="settings-group">
-            <label for="setting-model" class="group-title">Modèle LLM</label>
-            <select id="setting-model">
-              <option value="gemma4:26B">gemma4:26B (Recommandé mobile)</option>
-              <option value="qwen2.5:3b">qwen2.5:3b (Excellente précision)</option>
-              <option value="mistral:7b">mistral:7b (Complet)</option>
-              <option value="phi3:mini">phi3:mini (Ultra léger)</option>
-            </select>
-          </div>
-
-          <div class="settings-group">
-            <label for="setting-temp" class="group-title">
-              Température : <span id="setting-temp-val">0.7</span>
-            </label>
-            <input type="range" id="setting-temp" min="0.1" max="1.5" step="0.1" value="0.7">
-            <small class="field-hint">0.2 - 0.5 : Réponses très factuelles et strictes (recommandé survie/médical). 0.7 : Équilibré.</small>
-          </div>
-
-          <div class="settings-group">
-            <label for="setting-system-prompt" class="group-title">Prompt Système de Survie</label>
-            <textarea id="setting-system-prompt" rows="5"></textarea>
-          </div>
-
-          <div class="settings-actions">
-            <button type="button" id="btn-save-settings" class="btn btn-primary btn-block">
-              💾 Enregistrer les Réglages
-            </button>
           </div>
 
           <!-- Documentation & CORS Help -->
           <div class="help-box">
-            <h3>📖 Guide de Configuration & Dépannage</h3>
-            <h4>1. Autoriser le smartphone à joindre Ollama sur votre PC Windows :</h4>
-            <p>Par défaut, Ollama écoute uniquement sur <code>127.0.0.1</code>. Pour l'ouvrir à votre Galaxy S25 Ultra sur le même réseau WiFi, lancez une invite de commandes sur le PC :</p>
+            <h3>📖 Guide d'Installation Hors-Ligne & Moteurs</h3>
+            <h4>1. Sur Smartphone Android (Samsung S25 Ultra) :</h4>
+            <p>Le processeur Snapdragon 8 Elite et ses 12 Go de RAM permettent d'exécuter localement des modèles 1B à 3B sans aucune connexion :</p>
+            <ul>
+              <li><strong>Option Termux (Ollama) :</strong> Téléchargez Termux depuis F-Droid, tapez <code>pkg install ollama</code>, puis lancez <code>ollama run llama3.2:1b</code>. L'adresse est <code>http://127.0.0.1:11434</code>.</li>
+              <li><strong>Option llama-server :</strong> Compilez ou téléchargez le binaire <code>llama-server</code> ARM64 de llama.cpp avec support Vulkan pour exploiter le GPU Adreno 830.</li>
+              <li><strong>Option PocketPal AI :</strong> Installez l'APK PocketPal AI, chargez un modèle GGUF et cochez « Start Local API » sur le port 8080.</li>
+            </ul>
+
+            <h4>2. Sur PC Windows connecté au Smartphone (WiFi / Hotspot) :</h4>
+            <p>Si vous souhaitez faire tourner un modèle plus lourd (ex: 8B ou 14B) sur votre PC et l'interroger depuis le smartphone :</p>
             <pre>set OLLAMA_HOST=0.0.0.0<br/>set OLLAMA_ORIGINS=*<br/>ollama serve</pre>
-
-            <h4>2. Exécuter Ollama directement sur votre Samsung Galaxy S25 Ultra :</h4>
-            <p>Avec le processeur Snapdragon 8 Elite du S25 Ultra, vous pouvez faire tourner des modèles 3B à plus de 25 tokens/s en local dans <strong>Termux</strong> :</p>
-            <pre>pkg install ollama<br/>ollama serve &<br/>ollama run llama3.2:3b</pre>
-            <p>L'adresse dans la PWA sera alors directement <code>http://127.0.0.1:11434</code> !</p>
-
-            <h4>3. Edge Gallery / PocketPal AI sur Android :</h4>
-            <p>Dans l'application Edge Gallery ou PocketPal, cochez l'option <em>« Start Local API Server »</em>. Elle fournira une API compatible OpenAI sur le port <code>8080</code>.</p>
           </div>
         </div>
       </section>
@@ -224,8 +304,8 @@
       </button>
     </nav>
 
-    <!-- Modal: Emergency Protocol Details -->
-    <dialog id="protocol-modal" class="app-dialog">
+    <!-- Modal 1: Emergency Protocol Details -->
+    <dialog id="protocol-modal" class="app-dialog" aria-labelledby="modal-proto-title">
       <div class="dialog-header">
         <h3 id="modal-proto-title">Protocole</h3>
         <button class="btn-close-dialog" onclick="document.getElementById('protocol-modal').close()">✕</button>
@@ -233,13 +313,67 @@
       <div id="modal-proto-body" class="dialog-body"></div>
     </dialog>
 
-    <!-- Modal: Guide Full Reader -->
-    <dialog id="guide-modal" class="app-dialog dialog-fullscreen">
+    <!-- Modal 2: Guide Full Reader -->
+    <dialog id="guide-modal" class="app-dialog dialog-fullscreen" aria-labelledby="guide-modal-title">
       <div class="dialog-header">
         <h3 id="guide-modal-title">Guide de survie</h3>
         <button class="btn-close-dialog" onclick="document.getElementById('guide-modal').close()">✕</button>
       </div>
       <div id="guide-modal-body" class="dialog-body"></div>
+    </dialog>
+
+    <!-- Modal 3: Storage Choice Prompt on Install / First Boot -->
+    <dialog id="storage-prompt-modal" class="app-dialog" aria-labelledby="storage-prompt-title">
+      <div class="dialog-header">
+        <h3 id="storage-prompt-title">💾 Configuration du Mode Hors-Ligne</h3>
+        <button class="btn-close-dialog" onclick="document.getElementById('storage-prompt-modal').close()">✕</button>
+      </div>
+      <div class="dialog-body">
+        <p>
+          Pour garantir la fiabilité de <strong>Survival LLM</strong> en zone sinistrée ou en mode avion complet, choisissez votre mode de stockage local :
+        </p>
+
+        <div class="storage-choice-card">
+          <div class="storage-choice-header">
+            <h4>📦 Mode Full Hors-Ligne (~16 Mo)</h4>
+            <span class="badge-pill badge-success">Recommandé</span>
+          </div>
+          <p>
+            Télécharge et conserve en mémoire permanente les <strong>670 guides complets</strong> (secourisme d'urgence, survie extrême, potabilisation, techniques radio).
+          </p>
+          <div class="storage-device-stats" id="prompt-device-stats">
+            <span>Disque appareil disponible : détection...</span>
+          </div>
+        </div>
+
+        <div class="storage-choice-card">
+          <div class="storage-choice-header">
+            <h4>⚡ Mode Partiel / Léger (~1.5 Mo)</h4>
+          </div>
+          <p>
+            Conserve uniquement les fiches réflexes d'urgence SOS, l'index de recherche et les résumés RAG. Le texte intégral des gros manuels nécessitera un réseau ou sera chargé à la demande.
+          </p>
+        </div>
+
+        <div id="prompt-download-progress-container" class="download-progress-box" style="display: none;">
+          <div class="progress-label-row">
+            <span id="prompt-progress-status-text">Téléchargement en cours...</span>
+            <span id="prompt-progress-percent-text">0%</span>
+          </div>
+          <div class="storage-progress-bar">
+            <div id="prompt-download-fill" class="progress-fill progress-fill-active" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <div class="dialog-actions-row">
+          <button type="button" id="btn-prompt-download-full" class="btn btn-primary btn-block">
+            📥 Télécharger le Pack Complet (16 Mo)
+          </button>
+          <button type="button" id="btn-prompt-keep-partial" class="btn btn-outline btn-block">
+            Garder le Mode Partiel (1.5 Mo)
+          </button>
+        </div>
+      </div>
     </dialog>
 
     <!-- Save Notification Toast -->

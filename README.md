@@ -2,12 +2,53 @@
 
 🌐 **Application en ligne (GitHub Pages)** : **[https://olepicard.github.io/survival-llm-pwa/](https://olepicard.github.io/survival-llm-pwa/)**
 
-Version **Progressive Web App (PWA)** autonome en pur JavaScript/HTML5/CSS3 de **Survival LLM**.
+Version **Progressive Web App (PWA)** autonome en pur JavaScript/HTML5/CSS3 de **Survival LLM**, optimisée pour fonctionnement 100% hors-ligne en mode avion sur smartphone (Samsung Galaxy S25 Ultra, Pixel, etc.) et PC.
 
-Au lieu de dépendre d'un binaire C++ compilé (`llama.cpp` / NDK), cette application fonctionne **dans n'importe quel navigateur moderne (Chrome, Samsung Internet, Edge, Firefox)** et se connecte via des **requêtes API HTTP en streaming (`fetch`)** à votre moteur LLM local préféré :
-* **Ollama sur PC Windows** (accessible sur le réseau WiFi local)
-* **Ollama local sur Android (via Termux)** sur smartphone (ex: Samsung Galaxy S25 Ultra avec Snapdragon 8 Elite)
-* **Edge Gallery / PocketPal AI / LocalAI / MLC LLM** sur Android (API compatible OpenAI).
+Au lieu de dépendre d'un binaire C++ compilé monolithique, cette application fonctionne **dans n'importe quel navigateur moderne (Chrome, Samsung Internet, Edge, Firefox)** et se connecte via des **requêtes API HTTP en streaming (`fetch`)** à votre moteur LLM local préféré adapté à l'architecture matérielle cible :
+* **Ollama / llama.cpp ARM64 natif sur Android (via Termux)** sur smartphone (ex: Snapdragon 8 Elite avec Adreno 830)
+* **Ollama / llama.cpp x86_64 sur PC Windows** (accessible en local ou sur le réseau WiFi)
+* **PocketPal AI / Edge Gallery / LocalAI / MLC LLM** sur Android (API compatible OpenAI).
+
+---
+
+## 💾 Gestionnaire de Capacité Mémoire & Modes Hors-Ligne
+
+L'application teste automatiquement la capacité disque de votre smartphone ou PC via `navigator.storage.estimate()` et demande la persistance des données via `navigator.storage.persist()` :
+
+| Mode de Stockage | Taille Disque | Contenu & Disponibilité Hors-Ligne | Recommandé pour |
+| :--- | :--- | :--- | :--- |
+| **📦 Full Hors-Ligne** *(Recommandé)* | **~16 Mo** | **100% des 670 guides intégraux** téléchargés et stockés dans `IndexedDB` & `CacheStorage`. Zéro réseau requis, tous les manuels de survie et protocoles médicaux s'ouvrent en mode avion sans erreur. | Expéditions, zones blanches, pannes réseau, autonomie totale. |
+| **⚡ Mode Partiel / Léger** | **~1.5 Mo** | Fiches réflexes SOS d'urgence, index de recherche et extraits RAG conservés hors-ligne. Les manuels intégraux affichent une fiche résumé avec bouton de téléchargement en un clic. | Appareils avec espace très restreint. |
+
+---
+
+## 🎯 Architecture Cible & Moteur LLM Détecté
+
+La PWA intègre un module de détection matérielle (`js/arch.js`) qui analyse l'architecture CPU et le GPU de l'appareil client pour fournir les instructions et binaires adaptés issus de [github.com/ollama/ollama](https://github.com/ollama/ollama/) (`llama.cpp`) :
+
+### 1. Sur Smartphone Android ARM64 (ex: Samsung Galaxy S25 Ultra)
+* **Processeur :** Qualcomm Snapdragon 8 Elite (AArch64 / ARMv9-A)
+* **GPU :** Qualcomm Adreno 830 (Vulkan 1.3 / OpenCL)
+* **Binaire adapté :** `ollama-linux-arm64` (ou `llama-server` compilé avec `ggml-cpu` NEON et shaders Vulkan)
+* **Démarrage ultra-rapide dans Termux (sans root) :**
+  ```bash
+  pkg update && pkg install ollama
+  ollama serve &
+  ollama run llama3.2:1b
+  ```
+  *Dans la PWA, l'URL est directement `http://127.0.0.1:11434` !*
+
+### 2. Sur PC Windows (x86_64 / AMD64)
+* **Processeur :** x86_64 avec instructions vectorielles AVX2 / AVX-512
+* **Accélération :** NVIDIA CUDA / Vulkan
+* **Binaire adapté :** `ollama-windows-amd64.exe`
+* **Démarrage sur PC partagé avec le Smartphone en WiFi :**
+  ```cmd
+  set OLLAMA_HOST=0.0.0.0
+  set OLLAMA_ORIGINS=*
+  ollama serve
+  ```
+  *Dans la PWA sur le S25 Ultra, entrez `http://192.168.1.X:11434` (IP locale de votre PC).*
 
 ---
 
@@ -15,84 +56,16 @@ Au lieu de dépendre d'un binaire C++ compilé (`llama.cpp` / NDK), cette applic
 
 1. **Installation native (PWA WebAPK)** :
    * Ouvrez l'application dans Chrome ou Samsung Internet.
-   * Cliquez sur le bouton **« 📲 Installer l'App »** ou via le menu du navigateur : **« Ajouter à l'écran d'accueil »**.
+   * Cliquez sur le bouton **« 📲 Installer »** ou via le menu du navigateur : **« Ajouter à l'écran d'accueil »**.
    * L'application s'ouvre en **plein écran**, avec son icône d'application dédiée, sans barre d'URL.
 2. **Fonctionnement 100% Hors-Ligne (Offline-First)** :
-   * L'application est mise en cache localement par le **Service Worker (`sw.js`)**.
+   * L'application est mise en cache localement par le **Service Worker (`sw.js` v2.0)** avec stratégie Cache-First pour les données.
    * **670 guides de survie traduits en français** (SERE, FEMA, TCCC, secourisme militaire, hygiène, conserves sûres USDA, WikiCiv) sont stockés dans la base locale (`IndexedDB`).
-   * **8 fiches réflexes d'urgence vitale** (Garrot tourniquet, arrêt cardiaque RCR, étouffement Heimlich, purification d'eau, hypothermie, feu, brûlures, retombées CBRN) sont accessibles instantanément sans réseau ni modèle IA.
+   * **8 fiches réflexes d'urgence vitale** (Garrot tourniquet, arrêt cardiaque RCR, étouffement Heimlich, purification d'eau, hypothermie, feu, brûlures, retombées CBRN) sont accessibles instantanément.
 3. **Moteur RAG Hybride Local** :
-   * Lorsque vous posez une question dans le Chat, l'application recherche automatiquement les extraits les plus pertinents dans les guides de survie hors-ligne et les injecte dans le prompt envoyé au LLM local.
+   * Recherche instantanée dans les 670 guides et injection automatique du contexte vérifié dans le prompt LLM local.
 4. **Interface AMOLED Ultra-Économe** :
-   * Thème sombre noir profond spécialement conçu pour préserver la batterie des écrans AMOLED en situation de survie ou de coupure électrique.
-
----
-
-## 🚀 Démarrage Rapide
-
-### 1. Lancer le serveur local sur PC
-
-Double-cliquez sur :
-```bat
-start.bat
-```
-Ou en ligne de commande :
-```bash
-python server.py
-```
-Le terminal affichera :
-* L'URL pour votre PC : `http://localhost:8000`
-* L'URL pour votre smartphone Android sur le même WiFi : `http://192.168.1.X:8000`
-
----
-
-## ⚙️ Configuration du Moteur LLM
-
-Rendez-vous dans l'onglet **⚙️ Réglages** de l'application :
-
-### Cas 1 : Ollama tourne sur votre PC Windows (interrogé depuis votre smartphone)
-Par défaut, Ollama écoute uniquement sur `127.0.0.1` (ce qui bloque les connexions venant du smartphone). Pour autoriser votre Galaxy S25 Ultra :
-1. Fermez Ollama dans la barre des tâches Windows.
-2. Ouvrez une invite de commandes Windows (`cmd`) et tapez :
-   ```cmd
-   set OLLAMA_HOST=0.0.0.0
-   set OLLAMA_ORIGINS=*
-   ollama serve
-   ```
-3. Dans la PWA sur votre smartphone, entrez l'adresse IP de votre PC :
-   * **URL API** : `http://192.168.1.50:11434` *(remplacez par l'IP de votre PC affichée par server.py)*
-   * **Protocole** : `Ollama (/api/chat, /api/tags)`
-4. Cliquez sur **« 🔄 Tester la connexion & lister les modèles »** puis **« 💾 Enregistrer »**.
-
----
-
-### Cas 2 : Ollama tourne directement sur votre Samsung Galaxy S25 Ultra (100% autonome)
-Grâce à la puissance du processeur **Snapdragon 8 Elite** et des 12/16 Go de RAM du S25 Ultra, vous pouvez faire tourner Ollama directement sur votre téléphone via **Termux** :
-1. Installez **Termux** sur votre smartphone (depuis F-Droid ou GitHub).
-2. Dans Termux, installez Ollama :
-   ```bash
-   pkg update && pkg install ollama
-   ```
-3. Lancez le serveur Ollama en arrière-plan :
-   ```bash
-   ollama serve &
-   ```
-4. Téléchargez un modèle compact et ultra-rapide (3B recommandé) :
-   ```bash
-   ollama run llama3.2:3b
-   ```
-5. Dans la PWA sur votre smartphone, sélectionnez le préréglage :
-   * **URL API** : `http://127.0.0.1:11434`
-   * **Protocole** : `Ollama`
-
----
-
-### Cas 3 : Edge Gallery / PocketPal AI / LocalAI sur Android
-Si vous utilisez une application Android dédiée qui héberge un modèle GGUF local :
-* **Edge Gallery** ou **PocketPal AI** : activez l'option *« Local API Server »*.
-* Dans la PWA :
-  * **URL API** : `http://127.0.0.1:8080` (ou port indiqué par l'app)
-  * **Protocole** : `OpenAI Compatible (/v1/chat/completions)`
+   * Thème sombre noir absolu pour préserver la batterie en situation de crise.
 
 ---
 
@@ -100,27 +73,28 @@ Si vous utilisez une application Android dédiée qui héberge un modèle GGUF l
 
 ```
 js pwa standealone/
-├── index.html                  # Interface utilisateur mobile PWA
+├── index.html                  # Interface utilisateur PWA et dialogues de stockage
 ├── manifest.webmanifest        # Manifeste PWA Android
-├── sw.js                       # Service Worker pour fonctionnement 100% offline
-├── server.py                   # Serveur de distribution local (MIME types & IP LAN)
+├── sw.js                       # Service Worker v2.0 (Cache-First Offline)
+├── server.py                   # Serveur local de distribution (MIME types & IP LAN)
 ├── start.bat                   # Lanceur rapide Windows
 ├── css/
-│   └── styles.css              # Thème AMOLED responsive et styles Markdown
+│   └── styles.css              # Thème AMOLED, barre de quota, jauges et cartes
 ├── js/
-│   ├── app.js                  # Contrôleur général de l'application
+│   ├── app.js                  # Contrôleur général et gestionnaire du cycle de vie
 │   ├── api.js                  # Client API HTTP (Ollama & OpenAI) avec streaming
-│   ├── db.js                   # Gestionnaire IndexedDB et recherche hors-ligne
-│   ├── emergency.js            # Gestionnaire des fiches réflexes d'urgence
+│   ├── arch.js                 # Détection architecture matérielle & moteur llama.cpp
+│   ├── db.js                   # IndexedDB, estimation quota & packs Full/Partiel
+│   ├── emergency.js            # Protocoles réflexes d'urgence immédiate
 │   ├── rag.js                  # Moteur RAG d'injection de contexte local
 │   └── markdown.js             # Moteur de rendu Markdown ultra-léger
 ├── data/
-│   ├── emergency_protocols.json # Protocoles vitaux immédiats
+│   ├── emergency_protocols.json # 8 protocoles vitaux immédiats
 │   ├── guides_index.json       # Index des 670 guides de survie en français
-│   ├── guides_survival.json    # Manuels SERE & plans de catastrophe FEMA
-│   ├── guides_medical.json     # Secourisme & médecine tactique de combat TCCC
-│   ├── guides_food.json        # Eau potable & conserves sécurisées USDA
-│   └── guides_tech.json        # WikiCiv : reconstruction des technologies vitales
+│   ├── guides_survival.json    # Manuels SERE & plans de catastrophe FEMA (6.6 Mo)
+│   ├── guides_medical.json     # Secourisme & médecine tactique TCCC (7.0 Mo)
+│   ├── guides_food.json        # Eau potable & conserves sécurisées USDA (0.4 Mo)
+│   └── guides_tech.json        # WikiCiv : reconstruction des technologies vitales (1.2 Mo)
 └── icons/
     ├── icon.svg                # Logo vectoriel haute fidélité
     ├── icon-192.png            # Icône écran d'accueil Android 192x192
@@ -130,4 +104,4 @@ js pwa standealone/
 ---
 
 ## 🛡️ Sécurité & Modern Web Standards (LNA)
-L'application intègre le standard moderne **Local Network Access (LNA)** (`targetAddressSpace: 'loopback'` / `'local'`), garantissant que les navigateurs basés sur Chromium récents (Chrome 145+) ne bloquent pas les requêtes locales vers votre machine ou loopback sans avertissement clair.
+L'application intègre le standard moderne **Local Network Access (LNA)** (`targetAddressSpace: 'loopback'` / `'local'`), garantissant que les navigateurs basés sur Chromium récents ne bloquent pas les requêtes locales vers votre machine sans avertissement clair.
