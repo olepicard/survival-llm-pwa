@@ -332,6 +332,22 @@
             </div>
           </div>
 
+          <!-- Journal des Logs & Diagnostic WebGPU/App -->
+          <div class="settings-card" style="margin-top: 16px;">
+            <div class="settings-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <h3 style="margin: 0; font-size: 1rem; color: var(--text);">📋 Journal des Logs &amp; Diagnostic</h3>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" id="btn-refresh-logs" class="btn-sm" title="Rafraîchir les logs">🔄</button>
+                <button type="button" id="btn-copy-logs" class="btn-sm" title="Copier les logs">📋 Copier</button>
+                <button type="button" id="btn-clear-logs" class="btn-sm btn-outline" title="Effacer les logs">🗑️</button>
+              </div>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+              Consultez en temps réel les logs d'exécution, les erreurs WebGPU (allocation VRAM, mapAsync) ou réseau directement sur votre smartphone.
+            </p>
+            <div id="app-logs-viewer" class="logs-viewer-box">Initialisation du journal des logs...</div>
+          </div>
+
           <!-- Documentation & Aide -->
           <div class="help-box">
             <h3>📖 Guide des Moteurs IA</h3>

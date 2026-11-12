@@ -11,6 +11,62 @@ import { RAGEngine } from './rag.js';
 import { ArchitectureDetector } from './arch.js';
 import { renderMarkdown, escapeHtml } from './markdown.js';
 
+// In-Memory Circular Log Buffer for Mobile UI Debugging
+export const APP_LOGS = [];
+const MAX_LOG_ENTRIES = 250;
+
+function formatLogEntry(level, args) {
+  const now = new Date();
+  const time = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+  const msg = args.map(arg => {
+    if (arg instanceof Error) {
+      return `${arg.name}: ${arg.message}${arg.stack ? '\n' + arg.stack : ''}`;
+    }
+    if (typeof arg === 'object' && arg !== null) {
+      try {
+        return JSON.stringify(arg);
+      } catch (e) {
+        return String(arg);
+      }
+    }
+    return String(arg);
+  }).join(' ');
+  return `[${time}] [${level}] ${msg}`;
+}
+
+const origLog = console.log.bind(console);
+const origWarn = console.warn.bind(console);
+const origError = console.error.bind(console);
+
+console.log = (...args) => {
+  origLog(...args);
+  APP_LOGS.push(formatLogEntry('LOG', args));
+  if (APP_LOGS.length > MAX_LOG_ENTRIES) APP_LOGS.shift();
+  window.dispatchEvent(new CustomEvent('app-log-updated'));
+};
+
+console.warn = (...args) => {
+  origWarn(...args);
+  APP_LOGS.push(formatLogEntry('WARN', args));
+  if (APP_LOGS.length > MAX_LOG_ENTRIES) APP_LOGS.shift();
+  window.dispatchEvent(new CustomEvent('app-log-updated'));
+};
+
+console.error = (...args) => {
+  origError(...args);
+  APP_LOGS.push(formatLogEntry('ERROR', args));
+  if (APP_LOGS.length > MAX_LOG_ENTRIES) APP_LOGS.shift();
+  window.dispatchEvent(new CustomEvent('app-log-updated'));
+};
+
+window.addEventListener('error', (event) => {
+  console.error(`Uncaught error: ${event.message} at ${event.filename}:${event.lineno}`);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error(`Unhandled Promise rejection: ${event.reason}`);
+});
+
 class SurvivalApp {
   constructor() {
     this.api = new LLMClient();
@@ -24,6 +80,8 @@ class SurvivalApp {
     this.currentAbortController = null;
     this.deferredInstallPrompt = null;
     this.isDownloadingGuides = false;
+    this.isGenerating = false;
+    this.isUserAborted = false;
 
     this.init();
   }
@@ -33,6 +91,7 @@ class SurvivalApp {
     this.setupInstallPrompt();
     this.setupTabs();
     this.setupSettingsUI();
+    this.setupLogsUI();
     this.setupChatUI();
     this.setupGuidesUI();
     this.setupStorageUI();
@@ -384,7 +443,62 @@ class SurvivalApp {
       this.scrollChatToBottom();
     } else if (tabName === 'settings') {
       this.updateStorageStatusUI();
+      if (typeof this.updateLogsDisplay === 'function') {
+        this.updateLogsDisplay();
+      }
     }
+  }
+
+  /* ---------------- In-App Logs & Diagnostics UI ---------------- */
+
+  setupLogsUI() {
+    const logsViewer = document.getElementById('app-logs-viewer');
+    const btnRefreshLogs = document.getElementById('btn-refresh-logs');
+    const btnCopyLogs = document.getElementById('btn-copy-logs');
+    const btnClearLogs = document.getElementById('btn-clear-logs');
+
+    this.updateLogsDisplay = () => {
+      if (!logsViewer) return;
+      if (APP_LOGS.length === 0) {
+        logsViewer.textContent = 'Aucun log enregistré pour le moment.';
+      } else {
+        logsViewer.textContent = APP_LOGS.join('\n');
+        logsViewer.scrollTop = logsViewer.scrollHeight;
+      }
+    };
+
+    if (btnRefreshLogs) {
+      btnRefreshLogs.addEventListener('click', () => {
+        this.updateLogsDisplay();
+      });
+    }
+
+    if (btnCopyLogs) {
+      btnCopyLogs.addEventListener('click', () => {
+        const text = APP_LOGS.join('\n');
+        navigator.clipboard.writeText(text).then(() => {
+          btnCopyLogs.textContent = '✅ Copié';
+          setTimeout(() => { btnCopyLogs.textContent = '📋 Copier'; }, 2000);
+        }).catch(() => {
+          alert('Impossible d\'accéder au presse-papier.');
+        });
+      });
+    }
+
+    if (btnClearLogs) {
+      btnClearLogs.addEventListener('click', () => {
+        APP_LOGS.length = 0;
+        this.updateLogsDisplay();
+      });
+    }
+
+    window.addEventListener('app-log-updated', () => {
+      if (this.activeTab === 'settings') {
+        this.updateLogsDisplay();
+      }
+    });
+
+    this.updateLogsDisplay();
   }
 
   /* ---------------- Chat UI & Streaming ---------------- */
@@ -406,6 +520,7 @@ class SurvivalApp {
     if (form && input) {
       form.addEventListener('submit', (e) => {
         e.preventDefault();
+        if (this.isGenerating) return;
         const text = input.value.trim();
         if (!text) return;
         input.value = '';
@@ -415,6 +530,7 @@ class SurvivalApp {
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
+          if (this.isGenerating) return;
           form.dispatchEvent(new Event('submit'));
         }
       });
@@ -422,11 +538,13 @@ class SurvivalApp {
 
     if (stopBtn) {
       stopBtn.addEventListener('click', () => {
+        console.log('[Chat] Action utilisateur : clic sur le bouton Arrêter la génération.');
+        this.isUserAborted = true;
         if (this.currentAbortController) {
           this.currentAbortController.abort();
           this.currentAbortController = null;
-          this.setGenerating(false);
         }
+        this.setGenerating(false);
       });
     }
 
@@ -468,6 +586,7 @@ class SurvivalApp {
   }
 
   setGenerating(isGenerating) {
+    this.isGenerating = isGenerating;
     const sendBtn = document.getElementById('btn-send-chat');
     const stopBtn = document.getElementById('btn-stop-chat');
     const input = document.getElementById('chat-input');
@@ -478,10 +597,18 @@ class SurvivalApp {
   }
 
   async sendChatMessage(text, forcedContext = '') {
+    if (this.isGenerating) {
+      console.warn('[Chat] Requête ignorée : une génération est déjà en cours.');
+      return;
+    }
+
     const messagesContainer = document.getElementById('chat-messages');
     
     const welcome = messagesContainer.querySelector('.chat-welcome');
     if (welcome) welcome.remove();
+
+    this.isUserAborted = false;
+    this.setGenerating(true);
 
     // 1. Add User Message
     this.chatHistory.push({ role: 'user', content: text });
@@ -492,8 +619,6 @@ class SurvivalApp {
     `;
     messagesContainer.appendChild(userMsgEl);
     this.scrollChatToBottom();
-
-    this.setGenerating(true);
 
     // 2. Prepare Context (RAG)
     let ragResult = { contextText: '', sources: [] };
@@ -584,26 +709,31 @@ class SurvivalApp {
 
     } catch (err) {
       bubbleEl.classList.remove('streaming-cursor');
-      if (err.name === 'AbortError') {
+      console.error('[Chat] Erreur interceptée dans sendChatMessage:', err);
+
+      if (this.isUserAborted) {
         bubbleEl.innerHTML += '<p class="text-muted"><em>[Génération arrêtée par l\'utilisateur]</em></p>';
       } else {
+        const errType = err.name || 'Erreur';
+        const errMsg = err.message || String(err);
         bubbleEl.innerHTML = `
           <div class="alert alert-error">
-            <strong>Erreur de génération :</strong><br/>
-            ${escapeHtml(err.message)}
+            <strong>Erreur de génération (${escapeHtml(errType)}) :</strong><br/>
+            ${escapeHtml(errMsg)}
           </div>
           <div class="error-help">
-            <p>💡 <strong>Conseils selon votre moteur :</strong></p>
+            <p>💡 <strong>Diagnostic &amp; Conseils :</strong></p>
             <ul>
-              <li><strong>Si WebGPU est sélectionné :</strong> Vérifiez que votre navigateur (Chrome/Edge) supporte WebGPU et que vous disposez d'une connexion pour le premier téléchargement des poids.</li>
-              <li><strong>Si Ollama est sélectionné :</strong> Vérifiez qu'Ollama écoute sur <code>http://127.0.0.1:11434</code> (ou que l'IP de votre PC est correcte).</li>
-              <li>Vous pouvez changer de moteur à tout moment dans l'onglet <strong>⚙️ Réglages</strong>.</li>
+              <li><strong>Consultez les logs détaillés :</strong> Rendez-vous dans l'onglet <strong>⚙️ Réglages</strong> &gt; section <strong>📋 Journal des Logs &amp; Diagnostic</strong> pour voir la trace technique exacte sans PC.</li>
+              <li><strong>Si WebGPU :</strong> Assurez-vous que le modèle est préchargé à 100% dans Réglages. Si la mémoire GPU est saturée (GPUBuffer mapAsync / OOM), basculez vers le modèle ultra-léger <em>SmolLM2 (210 Mo)</em>.</li>
+              <li><strong>Si Ollama :</strong> Vérifiez que votre serveur local Termux écoute avec <code>export OLLAMA_ORIGINS="*"</code>.</li>
             </ul>
           </div>
         `;
       }
     } finally {
       this.currentAbortController = null;
+      this.isUserAborted = false;
       this.setGenerating(false);
       this.scrollChatToBottom();
     }

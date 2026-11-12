@@ -47,6 +47,7 @@ export class WebGPUEngine {
    */
   async checkSupport() {
     if (!('gpu' in navigator)) {
+      console.warn('[WebGPU] navigator.gpu non disponible dans ce navigateur.');
       return {
         supported: false,
         reason: 'L\'API WebGPU n\'est pas disponible dans ce navigateur. Utilisez Chrome ou Edge récent.'
@@ -56,13 +57,16 @@ export class WebGPUEngine {
     try {
       const adapter = await navigator.gpu.requestAdapter();
       if (!adapter) {
+        console.warn('[WebGPU] requestAdapter a renvoyé null (aucun adaptateur GPU compatible).');
         return {
           supported: false,
           reason: 'Aucun adaptateur GPU compatible WebGPU détecté sur cet appareil.'
         };
       }
+      console.log('[WebGPU] Adaptateur GPU détecté avec succès.');
       return { supported: true, adapter };
     } catch (err) {
+      console.error('[WebGPU] Erreur lors de requestAdapter:', err);
       return {
         supported: false,
         reason: `Erreur d'initialisation WebGPU: ${err.message}`
@@ -76,13 +80,18 @@ export class WebGPUEngine {
   async _getWebLLM() {
     if (this.webLLMModule) return this.webLLMModule;
     try {
+      console.log(`[WebGPU] Chargement du module WebLLM depuis ${WEBGPU_CDN_URL}...`);
       this.webLLMModule = await import(WEBGPU_CDN_URL);
+      console.log('[WebGPU] Module WebLLM chargé depuis esm.run.');
       return this.webLLMModule;
     } catch (err) {
+      console.warn('[WebGPU] Échec esm.run, tentative de secours jsdelivr...', err);
       try {
         this.webLLMModule = await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm/+esm');
+        console.log('[WebGPU] Module WebLLM chargé depuis jsdelivr.');
         return this.webLLMModule;
       } catch (err2) {
+        console.error('[WebGPU] Échec complet chargement WebLLM:', err2);
         throw new Error(`Impossible de charger la bibliothèque WebGPU WebLLM (${err.message}). Vérifiez votre connexion Internet pour le chargement initial.`);
       }
     }
@@ -95,9 +104,11 @@ export class WebGPUEngine {
     let targetModel = modelId || this.currentModel;
 
     if (this.engine && this.currentModel === targetModel && this.isLoaded) {
+      console.log(`[WebGPU] Modèle ${targetModel} déjà instancié en VRAM.`);
       return this.engine;
     }
 
+    console.log(`[WebGPU] Démarrage chargement modèle : ${targetModel}`);
     const support = await this.checkSupport();
     if (!support.supported) {
       throw new Error(support.reason);
@@ -111,14 +122,20 @@ export class WebGPUEngine {
       if (webllm.prebuiltAppConfig && Array.isArray(webllm.prebuiltAppConfig.model_list)) {
         const found = webllm.prebuiltAppConfig.model_list.some(m => m.model_id === targetModel);
         if (!found) {
-          console.warn(`Modèle ${targetModel} non répertorié dans prebuiltAppConfig, repli sur Llama-3.2-1B-Instruct-q4f16_1-MLC`);
+          console.warn(`[WebGPU] Modèle ${targetModel} non répertorié dans prebuiltAppConfig, repli sur Llama-3.2-1B-Instruct-q4f16_1-MLC`);
           targetModel = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
         }
       }
 
+      console.log(`[WebGPU] Création du moteur CreateMLCEngine pour ${targetModel}...`);
+      let lastPercent = -1;
       const initProgressCallback = (report) => {
+        const percent = Math.round(report.progress * 100);
+        if (percent !== lastPercent && (percent % 10 === 0 || percent === 100)) {
+          lastPercent = percent;
+          console.log(`[WebGPU Téléchargement] ${report.text} (${percent}%)`);
+        }
         if (onProgress) {
-          const percent = Math.round(report.progress * 100);
           onProgress({
             text: report.text,
             progress: report.progress,
@@ -136,7 +153,11 @@ export class WebGPUEngine {
       this.currentModel = targetModel;
       this.isLoaded = true;
       localStorage.setItem('webgpu_model', targetModel);
+      console.log(`[WebGPU] Modèle ${targetModel} initialisé et opérationnel.`);
       return this.engine;
+    } catch (err) {
+      console.error(`[WebGPU] Erreur dans loadModel(${targetModel}):`, err);
+      throw err;
     } finally {
       this.isLoading = false;
     }
@@ -146,30 +167,45 @@ export class WebGPUEngine {
    * Stream chat completion directly in-browser
    */
   async streamChat(messages, onToken, signal, onLoadingProgress) {
+    console.log(`[WebGPU] Requête streamChat (${messages.length} messages) pour modèle: ${this.currentModel}`);
     if (!this.isLoaded || !this.engine) {
+      console.log('[WebGPU] Modèle non chargé, appel préalable à loadModel()...');
       await this.loadModel(this.currentModel, onLoadingProgress);
     }
 
-    const stream = await this.engine.chat.completions.create({
-      messages,
-      stream: true,
-      temperature: parseFloat(localStorage.getItem('llm_temperature') || '0.7'),
-      max_tokens: 1536
-    });
+    try {
+      console.log('[WebGPU] Lancement chat.completions.create...');
+      const stream = await this.engine.chat.completions.create({
+        messages,
+        stream: true,
+        temperature: parseFloat(localStorage.getItem('llm_temperature') || '0.7'),
+        max_tokens: 1536
+      });
 
-    let fullText = '';
-    for await (const chunk of stream) {
-      if (signal && signal.aborted) {
-        break;
+      let fullText = '';
+      let tokenCount = 0;
+      for await (const chunk of stream) {
+        if (signal && signal.aborted) {
+          console.log('[WebGPU] Signal d\'annulation reçu pendant l\'inférence.');
+          break;
+        }
+        const delta = chunk.choices[0]?.delta?.content || '';
+        if (delta) {
+          if (tokenCount === 0) {
+            console.log('[WebGPU] Premier jeton reçu.');
+          }
+          tokenCount++;
+          fullText += delta;
+          if (onToken) onToken(delta, fullText);
+        }
       }
-      const delta = chunk.choices[0]?.delta?.content || '';
-      if (delta) {
-        fullText += delta;
-        if (onToken) onToken(delta, fullText);
-      }
+
+      console.log(`[WebGPU] Fin de génération (${tokenCount} jetons).`);
+      return fullText;
+    } catch (err) {
+      console.error('[WebGPU] Erreur durant streamChat:', err);
+      throw err;
     }
-
-    return fullText;
   }
 
   /**
