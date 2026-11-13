@@ -117,6 +117,18 @@ class SurvivalApp {
     // Detect hardware architecture & update UI
     this.initArchitectureDisplay();
 
+    // Auto-migrate to SmolLM2 on mobile to prevent Adreno GPU Device Lost crashes
+    const isMobileDevice = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+    const savedModel = localStorage.getItem('webgpu_model');
+    if (isMobileDevice && (!localStorage.getItem('webgpu_mobile_migrated_v2') || savedModel === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')) {
+      console.log('[WebGPU] Smartphone détecté : sélection par défaut de SmolLM2-360M (376 Mo VRAM) pour garantir la stabilité Adreno.');
+      localStorage.setItem('webgpu_model', 'SmolLM2-360M-Instruct-q4f16_1-MLC');
+      localStorage.setItem('webgpu_mobile_migrated_v2', 'true');
+      this.api.webgpu.currentModel = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+      const webgpuModelSel = document.getElementById('setting-webgpu-model');
+      if (webgpuModelSel) webgpuModelSel.value = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+    }
+
     // Update engine badge
     this.updateEngineDisplayUI();
   }
@@ -731,31 +743,44 @@ class SurvivalApp {
 
       if (this.isUserAborted) {
         bubbleEl.innerHTML += '<p class="text-muted"><em>[Génération arrêtée par l\'utilisateur]</em></p>';
-      } else if (errMsg.includes('Device was lost') || errMsg.includes('insufficient memory') || errMsg.includes('Instance reference no longer exists') || errMsg.includes('dropped in popErrorScope')) {
+      } else if (
+        errMsg.includes('Device was lost') || 
+        errMsg.includes('insufficient memory') || 
+        errMsg.includes('Instance reference no longer exists') || 
+        errMsg.includes('dropped in popErrorScope') ||
+        errMsg.includes('Buffer was unmapped') ||
+        errMsg.includes('mapAsync')
+      ) {
+        // Purge dead GPU instance and force auto-switch to SmolLM2
+        const smolModel = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+        this.api.saveSettings({ webgpuModel: smolModel });
+        this.api.webgpu.currentModel = smolModel;
+        this.api.webgpu.engine = null;
+        this.api.webgpu.isLoaded = false;
+        const sel = document.getElementById('setting-webgpu-model');
+        if (sel) sel.value = smolModel;
+        this.updateEngineDisplayUI();
+
         bubbleEl.innerHTML = `
           <div class="alert alert-error">
-            <strong>⚠️ Mémoire GPU saturée (Device was lost) :</strong><br/>
-            Le processeur graphique Adreno de votre smartphone a saturé sa mémoire VRAM pendant la génération avec le modèle <strong>${escapeHtml(modelDisplayName)}</strong>.
+            <strong>⚠️ Saturation GPU Adreno (Device was lost) :</strong><br/>
+            Le modèle <strong>${escapeHtml(modelDisplayName)}</strong> a dépassé le délai de calcul maximal autorisé par le pilote Vulkan d'Android (plus de 20s de calcul continu).
           </div>
           <div class="error-help">
-            <p>💡 <strong>Solution immédiate recommandée :</strong></p>
-            <p>Le modèle <strong>Llama 3.2 1B</strong> nécessite plus de 1,2 Go de VRAM avec son cache d'attention, ce qui dépasse le plafond GPU alloué par Android.<br/>
-            Basculez sur le modèle ultra-léger <strong>SmolLM2 360M (~210 Mo)</strong> : il ne requiert que <strong>376 Mo de VRAM</strong> et tourne de manière 100% stable sur Snapdragon / Adreno sans aucun crash !</p>
+            <p>💡 <strong>Bascule automatique effectuée :</strong></p>
+            <p>L'application a automatiquement configuré le modèle <strong>SmolLM2 360M (~210 Mo)</strong>. Il ne requiert que <strong>376 Mo de VRAM</strong> et répond en quelques secondes sans aucun crash sur processeur Snapdragon / Adreno.</p>
             <button type="button" class="btn btn-primary btn-block" id="btn-quick-switch-smollm2" style="margin-top: 10px;">
-              ⚡ Basculer sur SmolLM2 360M (Recommandé Smartphone)
+              🚀 Répondre avec SmolLM2 360M (Recommandé Smartphone)
             </button>
           </div>
         `;
         const quickSwitchBtn = bubbleEl.querySelector('#btn-quick-switch-smollm2');
         if (quickSwitchBtn) {
           quickSwitchBtn.addEventListener('click', () => {
-            const smolModel = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
-            this.api.saveSettings({ webgpuModel: smolModel });
-            const sel = document.getElementById('setting-webgpu-model');
-            if (sel) sel.value = smolModel;
-            this.updateEngineDisplayUI();
-            quickSwitchBtn.textContent = '✅ Basculé sur SmolLM2 ! Posez à nouveau votre question.';
+            quickSwitchBtn.textContent = '🔄 Lancement avec SmolLM2 en cours...';
             quickSwitchBtn.disabled = true;
+            assistantMsgEl.remove();
+            this.sendChatMessage(text, forcedContext);
           });
         }
       } else if (errMsg.includes('Cache.add') || errMsg.includes('network error') || errMsg.includes("Failed to execute 'add' on 'Cache'")) {
