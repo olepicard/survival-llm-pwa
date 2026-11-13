@@ -36,7 +36,14 @@ export const WEBGPU_MODELS = [
 export class WebGPUEngine {
   constructor() {
     this.engine = null;
-    this.currentModel = localStorage.getItem('webgpu_model') || 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+    let saved = localStorage.getItem('webgpu_model');
+    const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+    if (isMobile && (!saved || saved.includes('Llama') || saved.includes('3B'))) {
+      console.log('[WebGPU] Smartphone détecté : configuration forcée sur SmolLM2-360M (376 Mo VRAM) pour éliminer le crash Adreno.');
+      saved = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+      localStorage.setItem('webgpu_model', saved);
+    }
+    this.currentModel = saved || 'SmolLM2-360M-Instruct-q4f16_1-MLC';
     this.isLoaded = false;
     this.isLoading = false;
     this.webLLMModule = null;

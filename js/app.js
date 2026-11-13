@@ -622,6 +622,18 @@ class SurvivalApp {
     this.isUserAborted = false;
     this.setGenerating(true);
 
+    // Garde-fou automatique smartphone : empêche l'exécution de Llama 3.2 1B qui sature le GPU Adreno (Device was lost)
+    const isMobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+    if (this.api.engineMode === 'webgpu' && isMobile && (this.api.webgpu.currentModel.includes('Llama') || this.api.webgpu.currentModel.includes('3B'))) {
+      console.warn('[Chat] Garde-fou mobile : Llama 3.2 sature le GPU Adreno. Bascule automatique vers SmolLM2 360M.');
+      const smol = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+      this.api.webgpu.currentModel = smol;
+      this.api.saveSettings({ webgpuModel: smol });
+      const sel = document.getElementById('setting-webgpu-model');
+      if (sel) sel.value = smol;
+      this.updateEngineDisplayUI();
+    }
+
     // 1. Add User Message
     this.chatHistory.push({ role: 'user', content: text });
     const userMsgEl = document.createElement('div');
