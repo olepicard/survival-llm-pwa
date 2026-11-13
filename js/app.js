@@ -684,7 +684,22 @@ class SurvivalApp {
         },
         this.currentAbortController.signal,
         (loadingProgress) => {
-          bubbleEl.innerHTML = `<div class="loading-spinner">🔄 [WebGPU] ${escapeHtml(loadingProgress.text)} (${loadingProgress.percent}%)</div>`;
+          const percent = loadingProgress.percent || 0;
+          bubbleEl.innerHTML = `
+            <div class="webgpu-chat-loading-box">
+              <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 6px;">
+                <span>📥 <strong>[WebGPU] Chargement des poids...</strong></span>
+                <span><strong>${percent}%</strong></span>
+              </div>
+              <div class="storage-progress-bar" style="height: 6px; margin-bottom: 6px;">
+                <div class="progress-fill progress-fill-active" style="width: ${percent}%;"></div>
+              </div>
+              <div style="font-size: 0.74rem; color: var(--text-muted);">
+                ${escapeHtml(loadingProgress.text || 'Téléchargement en cache...')}
+                <br/><em>(Écran maintenu allumé grâce au WakeLock)</em>
+              </div>
+            </div>
+          `;
           this.scrollChatToBottom();
         }
       );
@@ -711,11 +726,27 @@ class SurvivalApp {
       bubbleEl.classList.remove('streaming-cursor');
       console.error('[Chat] Erreur interceptée dans sendChatMessage:', err);
 
+      const errType = err.name || 'Erreur';
+      const errMsg = err.message || String(err);
+
       if (this.isUserAborted) {
         bubbleEl.innerHTML += '<p class="text-muted"><em>[Génération arrêtée par l\'utilisateur]</em></p>';
+      } else if (errMsg.includes('Cache.add') || errMsg.includes('network error') || errMsg.includes("Failed to execute 'add' on 'Cache'")) {
+        bubbleEl.innerHTML = `
+          <div class="alert alert-error">
+            <strong>⚠️ Téléchargement WebGPU interrompu (Erreur réseau) :</strong><br/>
+            Le téléchargement des poids du modèle depuis Hugging Face a été coupé (coupure réseau, micro-déconnexion ou mode avion actif sans accès internet).
+          </div>
+          <div class="error-help">
+            <p>💡 <strong>Solutions rapides :</strong></p>
+            <ul>
+              <li><strong>Option 1 (Idéale sur smartphone) :</strong> Ouvrez l'onglet <strong>⚙️ Réglages</strong> et sélectionnez le modèle ultra-léger <strong>SmolLM2 360M (~210 Mo)</strong>. Ses fragments font 33 Mo au lieu de 131 Mo et se téléchargent en quelques secondes sans interruption !</li>
+              <li><strong>Option 2 (Pour Llama 3.2 1B ~720 Mo) :</strong> Allez dans <strong>⚙️ Réglages</strong>, vérifiez que le Wi-Fi a bien accès à Internet (désactivez temporairement le mode avion), puis cliquez sur <strong>📥 Télécharger / Mettre en cache</strong> pour suivre la barre de progression.</li>
+              <li>Une fois le modèle téléchargé à 100% dans le cache, vous pouvez réactiver le mode avion total et l'utiliser 100% hors-ligne.</li>
+            </ul>
+          </div>
+        `;
       } else {
-        const errType = err.name || 'Erreur';
-        const errMsg = err.message || String(err);
         bubbleEl.innerHTML = `
           <div class="alert alert-error">
             <strong>Erreur de génération (${escapeHtml(errType)}) :</strong><br/>

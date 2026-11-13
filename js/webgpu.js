@@ -40,6 +40,49 @@ export class WebGPUEngine {
     this.isLoaded = false;
     this.isLoading = false;
     this.webLLMModule = null;
+    this.wakeLock = null;
+
+    // Réactivation automatique du WakeLock si l'utilisateur revient sur l'onglet pendant un téléchargement
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', async () => {
+        if (this.isLoading && document.visibilityState === 'visible') {
+          await this._acquireWakeLock();
+        }
+      });
+    }
+  }
+
+  /**
+   * Empêche l'extinction de l'écran et la mise en veille du smartphone
+   * (Évite la rupture des sockets réseau et l'erreur Cache.add() sur Android)
+   */
+  async _acquireWakeLock() {
+    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator && !this.wakeLock) {
+      try {
+        this.wakeLock = await navigator.wakeLock.request('screen');
+        console.log('[WebGPU] WakeLock actif : écran maintenu allumé pour sécuriser le transfert.');
+        this.wakeLock.addEventListener('release', () => {
+          this.wakeLock = null;
+        });
+      } catch (e) {
+        console.warn('[WebGPU] WakeLock écran refusé ou non supporté:', e.message);
+      }
+    }
+  }
+
+  /**
+   * Relâche le verrou d'écran
+   */
+  async _releaseWakeLock() {
+    if (this.wakeLock) {
+      try {
+        await this.wakeLock.release();
+        console.log('[WebGPU] WakeLock relâché.');
+      } catch (e) {
+        // ignore
+      }
+      this.wakeLock = null;
+    }
   }
 
   /**
@@ -115,6 +158,7 @@ export class WebGPUEngine {
     }
 
     this.isLoading = true;
+    await this._acquireWakeLock();
     const webllm = await this._getWebLLM();
 
     try {
@@ -160,6 +204,7 @@ export class WebGPUEngine {
       throw err;
     } finally {
       this.isLoading = false;
+      await this._releaseWakeLock();
     }
   }
 
@@ -173,6 +218,7 @@ export class WebGPUEngine {
       await this.loadModel(this.currentModel, onLoadingProgress);
     }
 
+    await this._acquireWakeLock();
     try {
       console.log('[WebGPU] Lancement chat.completions.create...');
       const stream = await this.engine.chat.completions.create({
@@ -205,6 +251,8 @@ export class WebGPUEngine {
     } catch (err) {
       console.error('[WebGPU] Erreur durant streamChat:', err);
       throw err;
+    } finally {
+      await this._releaseWakeLock();
     }
   }
 
