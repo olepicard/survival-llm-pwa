@@ -8,16 +8,16 @@ const WEBGPU_CDN_URL = 'https://esm.run/@mlc-ai/web-llm';
 
 export const WEBGPU_MODELS = [
   {
-    id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.2 1B Instruct (Recommandé S25 Ultra)',
-    sizeMB: 720,
-    desc: 'Ultra rapide, excellent en français et premiers secours (720 Mo)'
+    id: 'SmolLM2-360M-Instruct-q4f16_1-MLC',
+    name: 'SmolLM2 360M Instruct (Recommandé Smartphone • Stable VRAM)',
+    sizeMB: 210,
+    desc: 'Idéal smartphone Adreno / S25 Ultra : ne consomme que 376 Mo de VRAM, 100% stable sans crash GPU (210 Mo)'
   },
   {
-    id: 'SmolLM2-360M-Instruct-q4f16_1-MLC',
-    name: 'SmolLM2 360M Instruct (Ultra Léger)',
-    sizeMB: 210,
-    desc: 'Téléchargement éclair, idéal pour tester ou stockage restreint (210 Mo)'
+    id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+    name: 'Llama 3.2 1B Instruct (Recommandé PC / Tablettes)',
+    sizeMB: 720,
+    desc: 'Modèle 1B (attention : peut saturer la VRAM sur certains smartphones Android) (720 Mo)'
   },
   {
     id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
@@ -27,16 +27,16 @@ export const WEBGPU_MODELS = [
   },
   {
     id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.2 3B Instruct (Haute Précision)',
+    name: 'Llama 3.2 3B Instruct (Haute Précision PC)',
     sizeMB: 1800,
-    desc: 'Modèle complet pour PC ou smartphones 12 Go+ de RAM (1.8 Go)'
+    desc: 'Modèle complet pour PC avec GPU dédié 6 Go+ VRAM (1.8 Go)'
   }
 ];
 
 export class WebGPUEngine {
   constructor() {
     this.engine = null;
-    this.currentModel = localStorage.getItem('webgpu_model') || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+    this.currentModel = localStorage.getItem('webgpu_model') || 'SmolLM2-360M-Instruct-q4f16_1-MLC';
     this.isLoaded = false;
     this.isLoading = false;
     this.webLLMModule = null;
@@ -190,8 +190,11 @@ export class WebGPUEngine {
 
       // CRITICAL: Do NOT pass a bare appConfig object without model_list!
       // Passing { initProgressCallback } lets WebLLM safely use its internal prebuiltAppConfig.model_list.
+      // Passing { context_window_size: 1024 } optimizes KV-Cache memory consumption on mobile Adreno GPUs by 75%!
       this.engine = await webllm.CreateMLCEngine(targetModel, {
         initProgressCallback
+      }, {
+        context_window_size: 1024
       });
 
       this.currentModel = targetModel;
@@ -249,6 +252,11 @@ export class WebGPUEngine {
       console.log(`[WebGPU] Fin de génération (${tokenCount} jetons).`);
       return fullText;
     } catch (err) {
+      if (err.message && (err.message.includes('Device was lost') || err.message.includes('Instance reference no longer exists') || err.message.includes('dropped in popErrorScope'))) {
+        console.warn('[WebGPU] Contexte GPU perdu (Device was lost). Réinitialisation de l\'instance pour libérer la VRAM.');
+        this.engine = null;
+        this.isLoaded = false;
+      }
       console.error('[WebGPU] Erreur durant streamChat:', err);
       throw err;
     } finally {

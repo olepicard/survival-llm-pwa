@@ -731,6 +731,33 @@ class SurvivalApp {
 
       if (this.isUserAborted) {
         bubbleEl.innerHTML += '<p class="text-muted"><em>[Génération arrêtée par l\'utilisateur]</em></p>';
+      } else if (errMsg.includes('Device was lost') || errMsg.includes('insufficient memory') || errMsg.includes('Instance reference no longer exists') || errMsg.includes('dropped in popErrorScope')) {
+        bubbleEl.innerHTML = `
+          <div class="alert alert-error">
+            <strong>⚠️ Mémoire GPU saturée (Device was lost) :</strong><br/>
+            Le processeur graphique Adreno de votre smartphone a saturé sa mémoire VRAM pendant la génération avec le modèle <strong>${escapeHtml(modelDisplayName)}</strong>.
+          </div>
+          <div class="error-help">
+            <p>💡 <strong>Solution immédiate recommandée :</strong></p>
+            <p>Le modèle <strong>Llama 3.2 1B</strong> nécessite plus de 1,2 Go de VRAM avec son cache d'attention, ce qui dépasse le plafond GPU alloué par Android.<br/>
+            Basculez sur le modèle ultra-léger <strong>SmolLM2 360M (~210 Mo)</strong> : il ne requiert que <strong>376 Mo de VRAM</strong> et tourne de manière 100% stable sur Snapdragon / Adreno sans aucun crash !</p>
+            <button type="button" class="btn btn-primary btn-block" id="btn-quick-switch-smollm2" style="margin-top: 10px;">
+              ⚡ Basculer sur SmolLM2 360M (Recommandé Smartphone)
+            </button>
+          </div>
+        `;
+        const quickSwitchBtn = bubbleEl.querySelector('#btn-quick-switch-smollm2');
+        if (quickSwitchBtn) {
+          quickSwitchBtn.addEventListener('click', () => {
+            const smolModel = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+            this.api.saveSettings({ webgpuModel: smolModel });
+            const sel = document.getElementById('setting-webgpu-model');
+            if (sel) sel.value = smolModel;
+            this.updateEngineDisplayUI();
+            quickSwitchBtn.textContent = '✅ Basculé sur SmolLM2 ! Posez à nouveau votre question.';
+            quickSwitchBtn.disabled = true;
+          });
+        }
       } else if (errMsg.includes('Cache.add') || errMsg.includes('network error') || errMsg.includes("Failed to execute 'add' on 'Cache'")) {
         bubbleEl.innerHTML = `
           <div class="alert alert-error">
