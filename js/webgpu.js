@@ -1,11 +1,10 @@
 /**
- * WebGPU Local In-Browser LLM Engine (powered by WebLLM)
+ * WebGPU Local In-Browser LLM Engine v3.0 (Adreno Safe-Decode Edition)
  * Enables 100% in-browser offline AI inference on Snapdragon Adreno / PC GPUs
  * Zero installation, zero terminal, zero Termux required!
  */
 
-const LOCAL_WEBLLM_URL = './vendor/web-llm.js';
-const WEBGPU_CDN_URL = 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm/+esm';
+const LOCAL_WEBLLM_URL = './vendor/web-llm.js?v=3.0';
 
 export const WEBGPU_MODELS = [
   {
@@ -37,11 +36,10 @@ export const WEBGPU_MODELS = [
 export class WebGPUEngine {
   constructor() {
     this.engine = null;
-    this.worker = null;
     let saved = localStorage.getItem('webgpu_model');
     const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
     if (isMobile && (!saved || saved.includes('Llama') || saved.includes('3B'))) {
-      console.log('[WebGPU] Smartphone détecté : configuration forcée sur SmolLM2-360M (376 Mo VRAM) pour éliminer le crash Adreno.');
+      console.log('[WebGPU v3.0] Smartphone détecté : configuration forcée sur SmolLM2-360M (376 Mo VRAM) pour éliminer le crash Adreno.');
       saved = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
       localStorage.setItem('webgpu_model', saved);
     }
@@ -67,12 +65,12 @@ export class WebGPUEngine {
     if (typeof navigator !== 'undefined' && 'wakeLock' in navigator && !this.wakeLock) {
       try {
         this.wakeLock = await navigator.wakeLock.request('screen');
-        console.log('[WebGPU] WakeLock actif : écran maintenu allumé.');
+        console.log('[WebGPU v3.0] WakeLock actif : écran maintenu allumé.');
         this.wakeLock.addEventListener('release', () => {
           this.wakeLock = null;
         });
       } catch (e) {
-        console.warn('[WebGPU] WakeLock écran refusé ou non supporté:', e.message);
+        console.warn('[WebGPU v3.0] WakeLock écran refusé ou non supporté:', e.message);
       }
     }
   }
@@ -100,7 +98,7 @@ export class WebGPUEngine {
         const isPersisted = await navigator.storage.persisted();
         if (!isPersisted) {
           const granted = await navigator.storage.persist();
-          console.log(`[WebGPU] Stockage persistant navigateur : ${granted ? 'accordé' : 'géré automatiquement'}.`);
+          console.log(`[WebGPU v3.0] Stockage persistant navigateur : ${granted ? 'accordé' : 'géré automatiquement'}.`);
         }
       } catch (e) {
         // ignore
@@ -113,7 +111,7 @@ export class WebGPUEngine {
    */
   async checkSupport() {
     if (!('gpu' in navigator)) {
-      console.warn('[WebGPU] navigator.gpu non disponible dans ce navigateur.');
+      console.warn('[WebGPU v3.0] navigator.gpu non disponible dans ce navigateur.');
       return {
         supported: false,
         reason: 'L\'API WebGPU n\'est pas disponible dans ce navigateur. Utilisez Chrome ou Edge récent.'
@@ -123,16 +121,16 @@ export class WebGPUEngine {
     try {
       const adapter = await navigator.gpu.requestAdapter();
       if (!adapter) {
-        console.warn('[WebGPU] requestAdapter a renvoyé null (aucun adaptateur GPU compatible).');
+        console.warn('[WebGPU v3.0] requestAdapter a renvoyé null (aucun adaptateur GPU compatible).');
         return {
           supported: false,
           reason: 'Aucun adaptateur GPU compatible WebGPU détecté sur cet appareil.'
         };
       }
-      console.log('[WebGPU] Adaptateur GPU détecté avec succès.');
+      console.log('[WebGPU v3.0] Adaptateur GPU détecté avec succès.');
       return { supported: true, adapter };
     } catch (err) {
-      console.error('[WebGPU] Erreur lors de requestAdapter:', err);
+      console.error('[WebGPU v3.0] Erreur lors de requestAdapter:', err);
       return {
         supported: false,
         reason: `Erreur d'initialisation WebGPU: ${err.message}`
@@ -141,26 +139,14 @@ export class WebGPUEngine {
   }
 
   /**
-   * Load WebLLM library from local PWA bundle (100% offline, zero network)
+   * Load patched WebLLM library from local PWA bundle (100% offline, zero network, Adreno Safe-Decode patched)
    */
   async _getWebLLM() {
     if (this.webLLMModule) return this.webLLMModule;
-    try {
-      console.log('[WebGPU] Chargement du moteur WebLLM local (./vendor/web-llm.js)...');
-      this.webLLMModule = await import(LOCAL_WEBLLM_URL);
-      console.log('[WebGPU] Module WebLLM chargé localement (0 Mo réseau).');
-      return this.webLLMModule;
-    } catch (localErr) {
-      console.warn('[WebGPU] Repli sur CDN jsdelivr pour WebLLM...', localErr);
-      try {
-        this.webLLMModule = await import(WEBGPU_CDN_URL);
-        console.log('[WebGPU] Module WebLLM chargé depuis jsdelivr.');
-        return this.webLLMModule;
-      } catch (cdnErr) {
-        console.error('[WebGPU] Échec complet chargement WebLLM:', cdnErr);
-        throw new Error(`Impossible de charger le moteur WebLLM (${localErr.message}).`);
-      }
-    }
+    console.log('[WebGPU v3.0] Chargement du moteur WebLLM local patché (./vendor/web-llm.js?v=3.0)...');
+    this.webLLMModule = await import(LOCAL_WEBLLM_URL);
+    console.log('[WebGPU v3.0] Module WebLLM local chargé (Adreno Safe-Decode actif, 0 Mo réseau).');
+    return this.webLLMModule;
   }
 
   /**
@@ -173,7 +159,7 @@ export class WebGPUEngine {
         return await webllm.hasModelInCache(modelId || this.currentModel);
       }
     } catch (e) {
-      console.warn('[WebGPU] Impossible de vérifier hasModelInCache:', e);
+      console.warn('[WebGPU v3.0] Impossible de vérifier hasModelInCache:', e);
     }
     return false;
   }
@@ -185,11 +171,11 @@ export class WebGPUEngine {
     let targetModel = modelId || this.currentModel;
 
     if (this.engine && this.currentModel === targetModel && this.isLoaded) {
-      console.log(`[WebGPU] Modèle ${targetModel} déjà instancié en VRAM.`);
+      console.log(`[WebGPU v3.0] Modèle ${targetModel} déjà instancié en VRAM.`);
       return this.engine;
     }
 
-    console.log(`[WebGPU] Démarrage initialisation modèle : ${targetModel}`);
+    console.log(`[WebGPU v3.0] Démarrage initialisation modèle : ${targetModel}`);
     const support = await this.checkSupport();
     if (!support.supported) {
       throw new Error(support.reason);
@@ -204,13 +190,13 @@ export class WebGPUEngine {
       if (webllm.prebuiltAppConfig && Array.isArray(webllm.prebuiltAppConfig.model_list)) {
         const found = webllm.prebuiltAppConfig.model_list.some(m => m.model_id === targetModel);
         if (!found) {
-          console.warn(`[WebGPU] Modèle ${targetModel} non trouvé, repli sur SmolLM2-360M-Instruct-q4f16_1-MLC`);
+          console.warn(`[WebGPU v3.0] Modèle ${targetModel} non trouvé, repli sur SmolLM2-360M-Instruct-q4f16_1-MLC`);
           targetModel = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
         }
       }
 
       const isAlreadyCached = await this.isModelCached(targetModel);
-      console.log(`[WebGPU] Modèle ${targetModel} déjà en cache local hors-ligne : ${isAlreadyCached ? 'OUI (0 téléchargement Internet)' : 'NON (1er téléchargement requis)'}`);
+      console.log(`[WebGPU v3.0] Modèle ${targetModel} en cache local hors-ligne : ${isAlreadyCached ? 'OUI (0 téléchargement Internet)' : 'NON (1er téléchargement requis)'}`);
 
       let lastPercent = -1;
       const initProgressCallback = (report) => {
@@ -219,7 +205,7 @@ export class WebGPUEngine {
         const isFetchingFromNet = !isAlreadyCached && text.includes('Fetching param cache');
         if (percent !== lastPercent && (percent % 10 === 0 || percent === 100)) {
           lastPercent = percent;
-          console.log(`[WebGPU ${isFetchingFromNet ? 'Téléchargement 1ère fois' : 'Lecture Cache Local -> GPU'}] ${text} (${percent}%)`);
+          console.log(`[WebGPU v3.0 ${isFetchingFromNet ? 'Téléchargement 1ère fois' : 'Lecture Cache Local -> GPU'}] ${text} (${percent}%)`);
         }
         if (onProgress) {
           onProgress({
@@ -231,57 +217,28 @@ export class WebGPUEngine {
         }
       };
 
-      // Native 4096 context window (only 376 MB VRAM for SmolLM2-360M, 2048 for larger models)
-      // Prevents premature stop ("Generation stopped due to exceeding context_window_size") when RAG context is injected!
       const contextWindowSize = targetModel.includes('SmolLM2') || targetModel.includes('Qwen') ? 4096 : 2048;
       const chatOpts = {
         context_window_size: contextWindowSize,
-        sliding_window_size: -1,
-        prefill_chunk_size: 128
+        sliding_window_size: -1
       };
 
-      // Unload previous engine/worker if switching models
       await this.unload();
 
-      // Try Web Worker execution first so GPU prefill/decode never blocks the Android UI thread
-      let createdInWorker = false;
-      if (typeof Worker !== 'undefined' && typeof webllm.CreateWebWorkerMLCEngine === 'function') {
-        try {
-          console.log(`[WebGPU] Lancement dans un Web Worker dédié (context_window_size=${contextWindowSize})...`);
-          this.worker = new Worker(new URL('./webgpu-worker.js', import.meta.url), { type: 'module' });
-          this.engine = await webllm.CreateWebWorkerMLCEngine(
-            this.worker,
-            targetModel,
-            { initProgressCallback },
-            chatOpts
-          );
-          createdInWorker = true;
-          console.log(`[WebGPU] Moteur Web Worker actif pour ${targetModel}.`);
-        } catch (workerErr) {
-          console.warn('[WebGPU] Web Worker WebGPU non supporté sur ce navigateur, bascule sur thread principal:', workerErr.message);
-          if (this.worker) {
-            this.worker.terminate();
-            this.worker = null;
-          }
-        }
-      }
-
-      if (!createdInWorker) {
-        console.log(`[WebGPU] Création du moteur CreateMLCEngine sur thread principal (context_window_size=${contextWindowSize})...`);
-        this.engine = await webllm.CreateMLCEngine(
-          targetModel,
-          { initProgressCallback },
-          chatOpts
-        );
-      }
+      console.log(`[WebGPU v3.0] Création CreateMLCEngine (Adreno Safe-Decode, context_window_size=${contextWindowSize})...`);
+      this.engine = await webllm.CreateMLCEngine(
+        targetModel,
+        { initProgressCallback },
+        chatOpts
+      );
 
       this.currentModel = targetModel;
       this.isLoaded = true;
       localStorage.setItem('webgpu_model', targetModel);
-      console.log(`[WebGPU] Modèle ${targetModel} initialisé et prêt en VRAM (fenêtre: ${contextWindowSize} tokens).`);
+      console.log(`[WebGPU v3.0] Modèle ${targetModel} initialisé et prêt en VRAM (fenêtre: ${contextWindowSize} tokens).`);
       return this.engine;
     } catch (err) {
-      console.error(`[WebGPU] Erreur dans loadModel(${targetModel}):`, err);
+      console.error(`[WebGPU v3.0] Erreur dans loadModel(${targetModel}):`, err);
       throw err;
     } finally {
       this.isLoading = false;
@@ -293,20 +250,19 @@ export class WebGPUEngine {
    * Stream chat completion directly in-browser
    */
   async streamChat(messages, onToken, signal, onLoadingProgress) {
-    console.log(`[WebGPU] Requête streamChat (${messages.length} messages) pour modèle: ${this.currentModel}`);
+    console.log(`[WebGPU v3.0] Requête streamChat (${messages.length} messages) pour modèle: ${this.currentModel}`);
     if (!this.isLoaded || !this.engine) {
-      console.log('[WebGPU] Modèle non encore monté en VRAM, chargement depuis le cache...');
+      console.log('[WebGPU v3.0] Modèle non encore monté en VRAM, chargement depuis le cache local...');
       await this.loadModel(this.currentModel, onLoadingProgress);
     }
 
-    // Listen to AbortSignal so clicking Stop immediately interrupts WebLLM generation
     let abortHandler = null;
     if (signal) {
       if (signal.aborted) {
         throw new DOMException('Génération annulée par l\'utilisateur', 'AbortError');
       }
       abortHandler = () => {
-        console.log('[WebGPU] Signal abort reçu : appel de engine.interruptGenerate()');
+        console.log('[WebGPU v3.0] Signal abort reçu : appel de engine.interruptGenerate()');
         if (this.engine && typeof this.engine.interruptGenerate === 'function') {
           this.engine.interruptGenerate();
         }
@@ -316,12 +272,13 @@ export class WebGPUEngine {
 
     await this._acquireWakeLock();
     try {
-      console.log('[WebGPU] Lancement chat.completions.create...');
+      const t0 = performance.now();
+      console.log('[WebGPU v3.0] Lancement chat.completions.create (Adreno Safe-Decode)...');
       const stream = await this.engine.chat.completions.create({
         messages,
         stream: true,
         temperature: parseFloat(localStorage.getItem('llm_temperature') || '0.7'),
-        max_tokens: 768
+        max_tokens: 512
       });
 
       let fullText = '';
@@ -330,7 +287,7 @@ export class WebGPUEngine {
 
       for await (const chunk of stream) {
         if (signal && signal.aborted) {
-          console.log('[WebGPU] Signal d\'annulation détecté dans la boucle de streaming.');
+          console.log('[WebGPU v3.0] Signal d\'annulation détecté dans la boucle de streaming.');
           if (this.engine && typeof this.engine.interruptGenerate === 'function') {
             this.engine.interruptGenerate();
           }
@@ -343,7 +300,8 @@ export class WebGPUEngine {
         const delta = choice?.delta?.content || '';
         if (delta) {
           if (tokenCount === 0) {
-            console.log('[WebGPU] Premier jeton généré avec succès.');
+            const ttft = ((performance.now() - t0) / 1000).toFixed(2);
+            console.log(`[WebGPU v3.0] Premier jeton généré avec succès en ${ttft}s !`);
           }
           tokenCount++;
           fullText += delta;
@@ -351,7 +309,8 @@ export class WebGPUEngine {
         }
       }
 
-      console.log(`[WebGPU] Fin de génération (${tokenCount} jetons, raison: ${finishReason || 'stop'}).`);
+      const totalSec = ((performance.now() - t0) / 1000).toFixed(2);
+      console.log(`[WebGPU v3.0] Fin de génération (${tokenCount} jetons en ${totalSec}s, raison: ${finishReason || 'stop'}).`);
       return fullText;
     } catch (err) {
       const msg = err?.message || String(err);
@@ -361,10 +320,10 @@ export class WebGPUEngine {
         msg.includes('dropped in popErrorScope') ||
         msg.includes('Buffer was unmapped')
       ) {
-        console.warn('[WebGPU] Contexte GPU perdu (Device was lost). Réinitialisation de l\'instance pour libérer la VRAM.');
+        console.warn('[WebGPU v3.0] Contexte GPU perdu (Device was lost). Réinitialisation de l\'instance.');
         await this.unload();
       }
-      console.error('[WebGPU] Erreur durant streamChat:', err);
+      console.error('[WebGPU v3.0] Erreur durant streamChat:', err);
       throw err;
     } finally {
       if (signal && abortHandler) {
@@ -385,14 +344,6 @@ export class WebGPUEngine {
         console.warn('Erreur déchargement WebGPU:', e);
       }
       this.engine = null;
-    }
-    if (this.worker) {
-      try {
-        this.worker.terminate();
-      } catch (e) {
-        // ignore
-      }
-      this.worker = null;
     }
     this.isLoaded = false;
     this.isLoading = false;

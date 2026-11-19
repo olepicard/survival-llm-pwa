@@ -4,12 +4,12 @@
  * WebGPU in-browser engine (default), and external Ollama / llama.cpp engines.
  */
 
-import { LLMClient } from './api.js';
-import { GuidesDB } from './db.js';
-import { EmergencyManager } from './emergency.js';
-import { RAGEngine } from './rag.js';
-import { ArchitectureDetector } from './arch.js';
-import { renderMarkdown, escapeHtml } from './markdown.js';
+import { LLMClient } from './api.js?v=3.0';
+import { GuidesDB } from './db.js?v=3.0';
+import { EmergencyManager } from './emergency.js?v=3.0';
+import { RAGEngine } from './rag.js?v=3.0';
+import { ArchitectureDetector } from './arch.js?v=3.0';
+import { renderMarkdown, escapeHtml } from './markdown.js?v=3.0';
 
 // In-Memory Circular Log Buffer for Mobile UI Debugging
 export const APP_LOGS = [];
@@ -87,6 +87,7 @@ class SurvivalApp {
   }
 
   async init() {
+    console.log('[Survival LLM v3.0] Démarrage PWA (Moteur WebGPU Adreno Safe-Decode v3.0)...');
     this.setupServiceWorker();
     this.setupInstallPrompt();
     this.setupTabs();
@@ -644,8 +645,7 @@ class SurvivalApp {
       this.updateEngineDisplayUI();
     }
 
-    // 1. Add User Message
-    this.chatHistory.push({ role: 'user', content: text });
+    // 1. Add User Message UI
     const userMsgEl = document.createElement('div');
     userMsgEl.className = 'chat-message message-user';
     userMsgEl.innerHTML = `
@@ -654,18 +654,25 @@ class SurvivalApp {
     messagesContainer.appendChild(userMsgEl);
     this.scrollChatToBottom();
 
-    // 2. Prepare Context (RAG)
+    // 2. Prepare Context (RAG) - compact mode when using WebGPU for ultra-fast mobile GPU prefill
+    const isWebGPU = this.api.engineMode === 'webgpu';
     let ragResult = { contextText: '', sources: [] };
     if (forcedContext) {
-      ragResult.contextText = `\n\n${forcedContext}\nConsigne : Appuie-toi sur ces directives.`;
+      ragResult.contextText = isWebGPU
+        ? `\n[ Directives : ${forcedContext.slice(0, 350)} ]`
+        : `\n\n${forcedContext}\nConsigne : Appuie-toi sur ces directives.`;
       ragResult.sources = [{ title: 'Protocole SOS Direct', id: 0 }];
     } else if (this.rag.enabled) {
       try {
-        ragResult = await this.rag.retrieveContext(text);
+        ragResult = await this.rag.retrieveContext(text, isWebGPU);
       } catch (err) {
         console.warn('RAG retrieval failed:', err);
       }
     }
+
+    // Store final prompt in chatHistory so WebLLM multi-round KVCache prefix check matches on subsequent turns!
+    const fullUserPrompt = ragResult.contextText ? `${text}${ragResult.contextText}` : text;
+    this.chatHistory.push({ role: 'user', content: fullUserPrompt });
 
     // 3. Create Assistant Message Element
     const assistantMsgEl = document.createElement('div');
@@ -700,9 +707,6 @@ class SurvivalApp {
 
     // 4. Construct messages array for LLM (keep last 6 turns to avoid context window overflow)
     const apiMessages = this.chatHistory.slice(-6).map(m => ({ ...m }));
-    if (ragResult.contextText) {
-      apiMessages[apiMessages.length - 1].content += ragResult.contextText;
-    }
 
     this.currentAbortController = new AbortController();
     const startTime = performance.now();

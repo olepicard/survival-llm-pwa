@@ -1,12 +1,12 @@
 /**
- * Unified Local LLM Client for Survival PWA
+ * Unified Local LLM Client for Survival PWA (v3.0)
  * Supports:
  * 1. WebGPU In-Browser Engine (Default - zero install, zero Termux)
  * 2. Ollama / llama.cpp Local (Port 11434 - Termux / PC Windows)
  * 3. OpenAI-compatible Local Servers (Port 8080 - PocketPal AI / LocalAI)
  */
 
-import { WebGPUEngine, WEBGPU_MODELS } from './webgpu.js';
+import { WebGPUEngine, WEBGPU_MODELS } from './webgpu.js?v=3.0';
 
 export class LLMClient {
   constructor() {
@@ -31,6 +31,10 @@ DIRECTIVES :
 2. Pour les urgences médicales ou vitales, donne les étapes d'action immédiates NUMÉROTÉES (1, 2, 3) en mettant en évidence les DANGERS et contre-indications.
 3. Si un contexte de guides de survie est fourni, appuie-toi dessus avec rigueur.
 4. Reste concis, pragmatique et compréhensible même sous stress extrême.`;
+  }
+
+  getWebGPUCompactSystemPrompt() {
+    return `Tu es Survival LLM, expert en survie et premiers secours d'urgence. Réponds toujours en FRANÇAIS, de manière concise, pragmatique et structurée par étapes numérotées (1, 2, 3).`;
   }
 
   saveSettings(settings) {
@@ -164,15 +168,22 @@ DIRECTIVES :
    * Unified stream chat completion
    */
   async streamChat(messages, onToken, signal, onLoadingProgress) {
+    // 1. WebGPU Mode (Default) - uses compact system prompt for ultra-fast mobile GPU prefill
+    if (this.engineMode === 'webgpu') {
+      const sysContent = (this.systemPrompt === this.getDefaultSystemPrompt())
+        ? this.getWebGPUCompactSystemPrompt()
+        : this.systemPrompt;
+      const webgpuMessages = [
+        { role: 'system', content: sysContent },
+        ...messages
+      ];
+      return this.webgpu.streamChat(webgpuMessages, onToken, signal, onLoadingProgress);
+    }
+
     const fullMessages = [
       { role: 'system', content: this.systemPrompt },
       ...messages
     ];
-
-    // 1. WebGPU Mode (Default)
-    if (this.engineMode === 'webgpu') {
-      return this.webgpu.streamChat(fullMessages, onToken, signal, onLoadingProgress);
-    }
 
     // 2. Ollama Mode
     if (this.engineMode === 'ollama' || (this.engineMode === 'external' && this.apiType === 'ollama')) {

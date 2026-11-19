@@ -1,4 +1,4 @@
-const CACHE_NAME = 'survival-llm-v2.9';
+const CACHE_NAME = 'survival-llm-v3.0';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -7,7 +7,6 @@ const CORE_ASSETS = [
   './js/app.js',
   './js/api.js',
   './js/webgpu.js',
-  './js/webgpu-worker.js',
   './js/vendor/web-llm.js',
   './js/arch.js',
   './js/rag.js',
@@ -23,26 +22,39 @@ const CORE_ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(CORE_ASSETS);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // Bypass browser HTTP disk cache (GitHub Pages max-age=600) during install
+      const requests = CORE_ASSETS.map((url) => new Request(url, { cache: 'reload' }));
+      await cache.addAll(requests);
     }).then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          // CRITICAL: Only delete old 'survival-llm-*' caches!
-          // NEVER delete WebLLM model caches ('webllm/model', 'webllm/config', 'webllm/wasm', 'tvmjs')!
-          if (key.startsWith('survival-llm-') && key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys.map((key) => {
+        // CRITICAL: Only delete old 'survival-llm-*' caches!
+        // NEVER delete WebLLM model caches ('webllm/model', 'webllm/config', 'webllm/wasm', 'tvmjs')!
+        if (key.startsWith('survival-llm-') && key !== CACHE_NAME) {
+          return caches.delete(key);
+        }
+      })
+    );
+    await self.clients.claim();
+
+    // Force any open client tab (even one running old v2.8 without a controllerchange listener)
+    // to navigate/reload onto v3.0 immediately!
+    const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of windowClients) {
+      try {
+        await client.navigate(client.url);
+      } catch (e) {
+        // ignore if navigation is restricted
+      }
+    }
+  })());
 });
 
 self.addEventListener('fetch', (event) => {
@@ -62,7 +74,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname.includes('/icons/')
   ) {
     event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
+      caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
         if (cachedResponse) {
           return cachedResponse;
         }
@@ -76,7 +88,7 @@ self.addEventListener('fetch', (event) => {
           })
           .catch(() => {
             if (url.pathname.includes('/data/guides_')) {
-              return caches.match('./data/guides_index.json');
+              return caches.match('./data/guides_index.json', { ignoreSearch: true });
             }
           });
       })
@@ -84,10 +96,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Network-First with Offline Cache Fallback for lightweight app shell (HTML, app JS, CSS)
-  // Guarantees instant updates when online and 100% offline availability in Airplane Mode.
+  // 2. Network-First (bypassing stale HTTP disk cache) with Offline Cache Fallback for lightweight app shell
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-cache' })
       .then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
           const responseToCache = networkResponse.clone();
@@ -98,12 +109,12 @@ self.addEventListener('fetch', (event) => {
         return networkResponse;
       })
       .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
+        return caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
           if (cachedResponse) {
             return cachedResponse;
           }
           if (event.request.mode === 'navigate') {
-            return caches.match('./index.html');
+            return caches.match('./index.html', { ignoreSearch: true });
           }
         });
       })
