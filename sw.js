@@ -1,4 +1,4 @@
-const CACHE_NAME = 'survival-llm-v2.8';
+const CACHE_NAME = 'survival-llm-v2.9';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -7,6 +7,8 @@ const CORE_ASSETS = [
   './js/app.js',
   './js/api.js',
   './js/webgpu.js',
+  './js/webgpu-worker.js',
+  './js/vendor/web-llm.js',
   './js/arch.js',
   './js/rag.js',
   './js/db.js',
@@ -32,7 +34,9 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          // CRITICAL: Only delete old 'survival-llm-*' caches!
+          // NEVER delete WebLLM model caches ('webllm/model', 'webllm/config', 'webllm/wasm', 'tvmjs')!
+          if (key.startsWith('survival-llm-') && key !== CACHE_NAME) {
             return caches.delete(key);
           }
         })
@@ -45,14 +49,18 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // ONLY intercept same-origin requests!
-  // Cross-origin requests (HuggingFace CDN, CloudFront, esm.run, jsDelivr, Ollama on loopback)
-  // MUST bypass the Service Worker completely so they are handled directly by the browser.
+  // Cross-origin requests (HuggingFace CDN, CloudFront, Ollama on loopback)
+  // bypass the Service Worker completely so they are handled directly by the browser & WebLLM cache.
   if (url.origin !== self.location.origin) {
     return;
   }
 
-  // Cache-first for all guide data files: ensures immediate offline availability without delays
-  if (url.pathname.includes('/data/guides_')) {
+  // 1. Cache-First for heavy immutable assets (local WebLLM SDK bundle, guide bundles, icons)
+  if (
+    url.pathname.includes('/data/guides_') ||
+    url.pathname.includes('/js/vendor/web-llm.js') ||
+    url.pathname.includes('/icons/')
+  ) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         if (cachedResponse) {
@@ -67,33 +75,37 @@ self.addEventListener('fetch', (event) => {
             return networkResponse;
           })
           .catch(() => {
-            return caches.match('./data/guides_index.json');
+            if (url.pathname.includes('/data/guides_')) {
+              return caches.match('./data/guides_index.json');
+            }
           });
       })
     );
     return;
   }
 
-  // Cache-first for core assets
+  // 2. Network-First with Offline Cache Fallback for lightweight app shell (HTML, app JS, CSS)
+  // Guarantees instant updates when online and 100% offline availability in Airplane Mode.
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
         return networkResponse;
-      }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
-      });
-    })
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          if (event.request.mode === 'navigate') {
+            return caches.match('./index.html');
+          }
+        });
+      })
   );
 });

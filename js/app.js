@@ -135,8 +135,18 @@ class SurvivalApp {
 
   setupServiceWorker() {
     if ('serviceWorker' in navigator) {
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing && !this.isGenerating && !this.api?.webgpu?.isLoading) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
       navigator.serviceWorker.register('./sw.js').then((reg) => {
         console.log('ServiceWorker registered with scope:', reg.scope);
+        if (navigator.onLine) {
+          reg.update().catch(() => {});
+        }
       }).catch((err) => {
         console.warn('ServiceWorker registration failed:', err);
       });
@@ -688,8 +698,8 @@ class SurvivalApp {
     const bubbleEl = assistantMsgEl.querySelector('.msg-bubble');
     const copyBtn = assistantMsgEl.querySelector('.btn-copy-msg');
 
-    // 4. Construct messages array for LLM
-    const apiMessages = this.chatHistory.map(m => ({ ...m }));
+    // 4. Construct messages array for LLM (keep last 6 turns to avoid context window overflow)
+    const apiMessages = this.chatHistory.slice(-6).map(m => ({ ...m }));
     if (ragResult.contextText) {
       apiMessages[apiMessages.length - 1].content += ragResult.contextText;
     }
@@ -699,27 +709,41 @@ class SurvivalApp {
 
     try {
       let accumulatedText = '';
+      let rafPending = false;
       const fullResponse = await this.api.streamChat(
         apiMessages,
         (token, currentFull) => {
           accumulatedText = currentFull;
-          bubbleEl.innerHTML = renderMarkdown(currentFull);
-          this.scrollChatToBottom();
+          if (!rafPending) {
+            rafPending = true;
+            requestAnimationFrame(() => {
+              rafPending = false;
+              bubbleEl.innerHTML = renderMarkdown(accumulatedText);
+              this.scrollChatToBottom();
+            });
+          }
         },
         this.currentAbortController.signal,
         (loadingProgress) => {
           const percent = loadingProgress.percent || 0;
+          const isCached = !!loadingProgress.fromCache;
+          const headerLabel = isCached
+            ? '⚡ <strong>[WebGPU] Lecture du cache local hors-ligne vers le GPU...</strong>'
+            : '📥 <strong>[WebGPU] 1er Téléchargement et mise en cache permanente...</strong>';
+          const subLabel = isCached
+            ? 'Chargement local en VRAM (0 Mo téléchargé depuis Internet)'
+            : (loadingProgress.text || 'Téléchargement initial en cache...');
           bubbleEl.innerHTML = `
             <div class="webgpu-chat-loading-box">
               <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 6px;">
-                <span>📥 <strong>[WebGPU] Chargement des poids...</strong></span>
+                <span>${headerLabel}</span>
                 <span><strong>${percent}%</strong></span>
               </div>
               <div class="storage-progress-bar" style="height: 6px; margin-bottom: 6px;">
                 <div class="progress-fill progress-fill-active" style="width: ${percent}%;"></div>
               </div>
               <div style="font-size: 0.74rem; color: var(--text-muted);">
-                ${escapeHtml(loadingProgress.text || 'Téléchargement en cache...')}
+                ${escapeHtml(subLabel)}
                 <br/><em>(Écran maintenu allumé grâce au WakeLock)</em>
               </div>
             </div>
@@ -1045,8 +1069,10 @@ class SurvivalApp {
     // Preload WebGPU Model
     if (btnPreloadWebgpu) {
       btnPreloadWebgpu.addEventListener('click', async () => {
-        if (!navigator.onLine) {
-          alert('⚠️ Vous êtes actuellement hors-ligne ou en mode avion.\nPour télécharger le modèle la première fois (~720 Mo), désactivez le mode avion et connectez-vous au WiFi.');
+        const selectedModel = webgpuModelSelect ? webgpuModelSelect.value : this.api.webgpu.currentModel;
+        const alreadyCached = await this.api.webgpu.isModelCached(selectedModel);
+        if (!navigator.onLine && !alreadyCached) {
+          alert('⚠️ Vous êtes actuellement hors-ligne ou en mode avion et ce modèle n\'est pas encore dans le cache local.\nPour le télécharger la première fois, désactivez le mode avion et connectez-vous au Wi-Fi.');
           return;
         }
 
@@ -1054,14 +1080,18 @@ class SurvivalApp {
         btnPreloadWebgpu.disabled = true;
 
         try {
-          await this.api.webgpu.loadModel(webgpuModelSelect.value, (report) => {
-            if (webgpuStatusText) webgpuStatusText.textContent = report.text;
+          await this.api.webgpu.loadModel(selectedModel, (report) => {
+            if (webgpuStatusText) {
+              webgpuStatusText.textContent = report.fromCache
+                ? `⚡ [Cache Local -> GPU] ${report.text}`
+                : `📥 [Téléchargement 1ère fois] ${report.text}`;
+            }
             if (webgpuPercentText) webgpuPercentText.textContent = `${report.percent}%`;
             if (webgpuFill) webgpuFill.style.width = `${report.percent}%`;
           });
 
-          if (webgpuStatusText) webgpuStatusText.textContent = '✅ Modèle WebGPU chargé et prêt hors-ligne !';
-          alert('🎉 Modèle WebGPU téléchargé et stocké dans le cache du navigateur ! Il est 100% opérationnel en mode avion.');
+          if (webgpuStatusText) webgpuStatusText.textContent = '✅ Modèle WebGPU en cache permanent et prêt hors-ligne !';
+          alert('🎉 Modèle WebGPU prêt et verrouillé dans le cache permanent du navigateur ! Il est 100% opérationnel hors-ligne.');
         } catch (err) {
           console.error('WebGPU load error:', err);
           let userHint = err.message;

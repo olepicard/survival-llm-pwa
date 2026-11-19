@@ -53,14 +53,14 @@ export class RAGEngine {
       // Try to get full article or excerpt
       const full = await this.db.getArticle(guide.id);
       if (full && full.body) {
-        // Extract most relevant 1200 characters from body
-        const excerpt = this.extractRelevantPassage(full.body, userQuery, 1400);
+        // Extract most relevant 650 characters from body (keeps GPU prefill fast & prevents context window overflow)
+        const excerpt = this.extractRelevantPassage(full.body, userQuery, 650);
         contextSnippets.push(`EXTRAIT MANUEL [${guide.title}] (${guide.source_label}) :\n${excerpt}`);
       } else if (guide.snippet) {
         contextSnippets.push(`EXTRAIT [${guide.title}] :\n${guide.snippet}`);
       }
 
-      if (contextSnippets.length >= 3) break;
+      if (contextSnippets.length >= 2) break;
     }
 
     if (contextSnippets.length === 0) {
