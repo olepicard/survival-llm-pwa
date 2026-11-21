@@ -6,7 +6,7 @@
  * 3. OpenAI-compatible Local Servers (Port 8080 - PocketPal AI / LocalAI)
  */
 
-import { WebGPUEngine, WEBGPU_MODELS } from './webgpu.js?v=3.1';
+import { WebGPUEngine, WEBGPU_MODELS } from './webgpu.js?v=3.2';
 
 export class LLMClient {
   constructor() {

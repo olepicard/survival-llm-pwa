@@ -4,12 +4,13 @@
  * WebGPU in-browser engine (default), and external Ollama / llama.cpp engines.
  */
 
-import { LLMClient } from './api.js?v=3.1';
-import { GuidesDB } from './db.js?v=3.1';
-import { EmergencyManager } from './emergency.js?v=3.1';
-import { RAGEngine } from './rag.js?v=3.1';
-import { ArchitectureDetector } from './arch.js?v=3.1';
-import { renderMarkdown, escapeHtml } from './markdown.js?v=3.1';
+import { LLMClient } from './api.js?v=3.2';
+import { WEBGPU_MODELS } from './webgpu.js?v=3.2';
+import { GuidesDB } from './db.js?v=3.2';
+import { EmergencyManager } from './emergency.js?v=3.2';
+import { RAGEngine } from './rag.js?v=3.2';
+import { ArchitectureDetector } from './arch.js?v=3.2';
+import { renderMarkdown, escapeHtml } from './markdown.js?v=3.2';
 
 // In-Memory Circular Log Buffer for Mobile UI Debugging
 export const APP_LOGS = [];
@@ -87,7 +88,7 @@ class SurvivalApp {
   }
 
   async init() {
-    console.log('[Survival LLM v3.1] Démarrage PWA (Architecture 100% Hors-Ligne & Adreno Safe-Decode v3.1)...');
+    console.log('[Survival LLM v3.2] Démarrage PWA (Détection Matérielle Auto + 100% Hors-Ligne v3.2)...');
     this.setupServiceWorker();
     this.setupInstallPrompt();
     this.setupTabs();
@@ -115,20 +116,10 @@ class SurvivalApp {
     window.addEventListener('online', () => this.updateOnlineStatus());
     window.addEventListener('offline', () => this.updateOnlineStatus());
 
-    // Detect hardware architecture & update UI
+    // Detect hardware architecture & WebGPU capabilities, and auto-select optimal LLM model
     this.initArchitectureDisplay();
-
-    // Auto-migrate to SmolLM2 on mobile to prevent Adreno GPU Device Lost crashes
-    const isMobileDevice = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-    const savedModel = localStorage.getItem('webgpu_model');
-    if (isMobileDevice && (!localStorage.getItem('webgpu_mobile_migrated_v2') || savedModel === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')) {
-      console.log('[WebGPU] Smartphone détecté : sélection par défaut de SmolLM2-360M (376 Mo VRAM) pour garantir la stabilité Adreno.');
-      localStorage.setItem('webgpu_model', 'SmolLM2-360M-Instruct-q4f16_1-MLC');
-      localStorage.setItem('webgpu_mobile_migrated_v2', 'true');
-      this.api.webgpu.currentModel = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
-      const webgpuModelSel = document.getElementById('setting-webgpu-model');
-      if (webgpuModelSel) webgpuModelSel.value = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
-    }
+    const hwProfile = await this.api.webgpu.autoSelectOptimalModel();
+    this.renderWebGPUHardwareProfileUI(hwProfile);
 
     // Update engine badge
     await this.updateEngineDisplayUI();
@@ -140,6 +131,55 @@ class SurvivalApp {
 
     // Auto-mount WebGPU from permanent local cache at startup (or auto-cache once on first online boot)
     this.autoInitWebGPU();
+  }
+
+  renderWebGPUHardwareProfileUI(profile) {
+    if (!profile) return;
+
+    const tierBadge = document.getElementById('webgpu-hw-tier-badge');
+    const gpuNameEl = document.getElementById('webgpu-hw-gpu-name');
+    const vramLimitsEl = document.getElementById('webgpu-hw-vram-limits');
+    const recModelEl = document.getElementById('webgpu-hw-recommended-model');
+    const reasonEl = document.getElementById('webgpu-hw-reason');
+    const webgpuModelSel = document.getElementById('setting-webgpu-model');
+
+    if (tierBadge) {
+      tierBadge.textContent = profile.tierLabel;
+      tierBadge.className = profile.supported ? 'badge-pill badge-success' : 'badge-pill badge-warning';
+    }
+    if (gpuNameEl) {
+      gpuNameEl.textContent = `${profile.gpuDescription} • Calcul 16-bit (FP16): ${profile.hasF16 ? 'Oui ✅' : 'Non'}`;
+    }
+    if (vramLimitsEl) {
+      vramLimitsEl.textContent = `Buffer GPU Max: ${profile.maxBufferMB} Mo • Binding Tenseur: ${profile.maxStorageBindingMB} Mo • RAM: ~${profile.ramGB} Go (${profile.cpuCores} cœurs CPU)`;
+    }
+
+    const recObj = WEBGPU_MODELS.find(m => m.id === profile.recommendedModel);
+    if (recModelEl) {
+      recModelEl.textContent = recObj ? `${recObj.name} (~${recObj.sizeMB} Mo • ${recObj.vramMB} Mo VRAM)` : profile.recommendedModel;
+    }
+    if (reasonEl) {
+      reasonEl.textContent = profile.reason;
+    }
+
+    if (webgpuModelSel) {
+      Array.from(webgpuModelSel.options).forEach(opt => {
+        const mInfo = WEBGPU_MODELS.find(m => m.id === opt.value);
+        if (!mInfo) return;
+        let tag = '';
+        if (opt.value === profile.recommendedModel) {
+          tag = '⭐ OPTIMAL POUR CET APPAREIL';
+        } else if (opt.value === profile.alternativeModel) {
+          tag = '✅ Compatible avec cet appareil';
+        } else if (profile.isMobile && (opt.value.includes('Llama') || opt.value.includes('3B'))) {
+          tag = '⚠️ Réservé PC (Risque saturation VRAM mobile)';
+        } else {
+          tag = '✅ Compatible';
+        }
+        opt.textContent = `${mInfo.name} (${tag} • ~${mInfo.sizeMB} Mo • ${mInfo.vramMB} Mo VRAM)`;
+      });
+      webgpuModelSel.value = this.api.webgpu.currentModel;
+    }
   }
 
   async autoInitWebGPU() {
@@ -1156,8 +1196,23 @@ class SurvivalApp {
     if (webgpuModelSelect) {
       webgpuModelSelect.value = this.api.webgpu.currentModel;
       webgpuModelSelect.addEventListener('change', () => {
+        localStorage.setItem('webgpu_model_user_locked', 'true');
         this.api.saveSettings({ webgpuModel: webgpuModelSelect.value });
         this.updateEngineDisplayUI();
+      });
+    }
+
+    // Auto-select optimal hardware-recommended model button
+    const btnAutoSelectModel = document.getElementById('btn-auto-select-webgpu-model');
+    if (btnAutoSelectModel) {
+      btnAutoSelectModel.addEventListener('click', async () => {
+        localStorage.removeItem('webgpu_model_user_locked');
+        const profile = await this.api.webgpu.detectHardwareProfile();
+        this.api.saveSettings({ webgpuModel: profile.recommendedModel });
+        if (webgpuModelSelect) webgpuModelSelect.value = profile.recommendedModel;
+        this.renderWebGPUHardwareProfileUI(profile);
+        await this.updateEngineDisplayUI();
+        alert(`🎯 Modèle optimal sélectionné pour votre ${profile.deviceCategory} (${profile.gpuDescription}) :\n\n👉 ${profile.recommendedModel}\n\n${profile.reason}`);
       });
     }
 

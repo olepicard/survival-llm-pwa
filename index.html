@@ -20,7 +20,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=3.1">
+  <link rel="stylesheet" href="css/styles.css?v=3.2">
 </head>
 <body>
   <div id="app" class="app-layout">
@@ -29,7 +29,7 @@
       <div class="header-brand">
         <img src="icons/icon.svg" alt="Logo" class="app-logo">
         <div class="header-titles">
-          <h1>Survival LLM <small style="font-size:0.62em;opacity:0.8;font-weight:500;">v3.1</small></h1>
+          <h1>Survival LLM <small style="font-size:0.62em;opacity:0.8;font-weight:500;">v3.2</small></h1>
           <div class="header-sub">
             <span id="status-badge" class="status-badge">Initialisation...</span>
             <span id="engine-mode-badge" class="badge-pill badge-primary">⚡ WebGPU In-Browser</span>
@@ -203,13 +203,34 @@
 
             <!-- Sous-configuration : WebGPU -->
             <div id="section-webgpu-config" class="engine-subconfig">
+              <!-- Diagnostic Matériel WebGPU & Sélection Automatique -->
+              <div class="arch-info-box" id="webgpu-hw-profile-box" style="margin-bottom: 14px;">
+                <div class="arch-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <strong>🔬 Profil Matériel WebGPU détecté :</strong>
+                  <span id="webgpu-hw-tier-badge" class="badge-pill badge-success">Analyse GPU...</span>
+                </div>
+                <div class="arch-row">
+                  <strong>Puce GPU &amp; FP16 :</strong> <span id="webgpu-hw-gpu-name">Détection en cours...</span>
+                </div>
+                <div class="arch-row">
+                  <strong>Capacité VRAM / RAM :</strong> <span id="webgpu-hw-vram-limits">Calcul des limites WebGPU...</span>
+                </div>
+                <div class="arch-row">
+                  <strong>Modèle optimal recommandé :</strong> <span id="webgpu-hw-recommended-model" style="color: #38bdf8; font-weight: 600;">...</span>
+                </div>
+                <p id="webgpu-hw-reason" style="font-size: 0.78rem; color: var(--text-muted); margin: 6px 0 8px 0;"></p>
+                <button type="button" id="btn-auto-select-webgpu-model" class="btn btn-sm btn-secondary" style="width: 100%;">
+                  🎯 Sélectionner automatiquement le modèle optimal pour cet appareil
+                </button>
+              </div>
+
               <div class="settings-group">
                 <label for="setting-webgpu-model" class="group-title">Modèle WebGPU In-Browser</label>
                 <select id="setting-webgpu-model">
-                  <option value="SmolLM2-360M-Instruct-q4f16_1-MLC" selected>SmolLM2 360M Instruct (Recommandé Smartphone • Garanti sans saturation VRAM • ~210 Mo)</option>
-                  <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B Instruct (Recommandé PC / Tablettes • ~720 Mo)</option>
-                  <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">Qwen 2.5 0.5B Instruct (Léger &amp; Précis • ~360 Mo)</option>
-                  <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama 3.2 3B Instruct (Haute Précision PC • ~1.8 Go)</option>
+                  <option value="SmolLM2-360M-Instruct-q4f16_1-MLC" selected>SmolLM2 360M Instruct (Recommandé Smartphone • 376 Mo VRAM • ~195 Mo)</option>
+                  <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">Qwen 2.5 0.5B Instruct (Smartphone Flagship / Tablette • ~360 Mo)</option>
+                  <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B Instruct (Recommandé PC Portable / Tablette Pro • ~720 Mo)</option>
+                  <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama 3.2 3B Instruct (Haute Précision PC GPU Dédié • ~1.8 Go)</option>
                 </select>
                 <small class="field-hint">Les poids du modèle sont mis en cache une seule fois dans votre navigateur et fonctionnent ensuite 100% hors-ligne en mode avion.</small>
               </div>
@@ -458,6 +479,6 @@
   </div>
 
   <!-- Entry Script -->
-  <script type="module" src="js/app.js?v=3.1"></script>
+  <script type="module" src="js/app.js?v=3.2"></script>
 </body>
 </html>

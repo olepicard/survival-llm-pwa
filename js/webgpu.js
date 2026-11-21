@@ -1,49 +1,57 @@
 /**
- * WebGPU Local In-Browser LLM Engine v3.1 (Full Offline & Adreno Safe-Decode Edition)
- * Downloads all WebGPU resources ONCE into permanent CacheStorage and runs 100% offline.
- * Zero installation, zero terminal, zero Termux required!
+ * WebGPU Local In-Browser LLM Engine v3.2 (Smart Hardware Profiler + Full Offline + Adreno Safe-Decode)
+ * Automatically detects GPU/VRAM/RAM capabilities to select the optimal LLM model for the device,
+ * downloads all WebGPU resources ONCE into permanent CacheStorage, and runs 100% offline.
  */
 
-const LOCAL_WEBLLM_URL = './vendor/web-llm.js?v=3.1';
+const LOCAL_WEBLLM_URL = './vendor/web-llm.js?v=3.2';
 
 export const WEBGPU_MODELS = [
   {
     id: 'SmolLM2-360M-Instruct-q4f16_1-MLC',
-    name: 'SmolLM2 360M Instruct (Recommandé Smartphone • Stable VRAM)',
+    name: 'SmolLM2 360M Instruct',
     sizeMB: 195,
-    desc: 'Idéal smartphone Adreno / S25 Ultra : ne consomme que 376 Mo de VRAM (fenêtre 4096 tokens), 100% stable et 100% hors-ligne après 1er téléchargement (195 Mo)'
+    vramMB: 376,
+    tier: 'mobile',
+    desc: 'Idéal smartphone Adreno / S25 Ultra : ne consomme que 376 Mo de VRAM (fenêtre 4096 tokens), ultra-rapide et 100% stable sans crash GPU (~195 Mo)'
   },
   {
     id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
-    name: 'Qwen 2.5 0.5B Instruct (Léger & Précis)',
+    name: 'Qwen 2.5 0.5B Instruct',
     sizeMB: 360,
-    desc: 'Très compact et efficace pour les fiches d\'urgence en français (360 Mo)'
+    vramMB: 550,
+    tier: 'mobile-flagship',
+    desc: 'Modèle 500M compact et précis en français pour smartphones haut de gamme (8 Go+ RAM) et tablettes (~360 Mo)'
   },
   {
     id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.2 1B Instruct (Recommandé PC / Tablettes)',
+    name: 'Llama 3.2 1B Instruct',
     sizeMB: 720,
-    desc: 'Modèle 1B pour PC ou tablettes (peut dépasser le timeout GPU Vulkan sur certains smartphones Android) (720 Mo)'
+    vramMB: 880,
+    tier: 'pc-laptop',
+    desc: 'Modèle 1B idéal pour PC portables, Mac et tablettes Pro (~720 Mo • 880 Mo VRAM)'
   },
   {
     id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.2 3B Instruct (Haute Précision PC)',
+    name: 'Llama 3.2 3B Instruct',
     sizeMB: 1800,
-    desc: 'Modèle complet pour PC avec GPU dédié 6 Go+ VRAM (1.8 Go)'
+    vramMB: 2260,
+    tier: 'pc-desktop',
+    desc: 'Modèle 3B haute précision pour PC avec carte graphique dédiée (RTX / Radeon) ou Apple Silicon M1/M2/M3/M4 (~1.8 Go • 2.3 Go VRAM)'
   }
 ];
 
 export class WebGPUEngine {
   constructor() {
     this.engine = null;
+    this.hardwareProfile = null;
     let saved = localStorage.getItem('webgpu_model');
     const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
     if (isMobile && (!saved || saved.includes('Llama') || saved.includes('3B'))) {
-      console.log('[WebGPU v3.1] Smartphone détecté : configuration sur SmolLM2-360M (376 Mo VRAM) pour stabilité Adreno.');
       saved = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
       localStorage.setItem('webgpu_model', saved);
     }
-    this.currentModel = saved || 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+    this.currentModel = saved || (isMobile ? 'SmolLM2-360M-Instruct-q4f16_1-MLC' : 'Llama-3.2-1B-Instruct-q4f16_1-MLC');
     this.isLoaded = false;
     this.isLoading = false;
     this.loadPromise = null;
@@ -58,6 +66,184 @@ export class WebGPUEngine {
         }
       });
     }
+  }
+
+  /**
+   * Detect GPU, VRAM buffer limits, FP16 support, system RAM & CPU cores,
+   * and determine the most performant & stable LLM model for this smartphone or PC.
+   */
+  async detectHardwareProfile() {
+    if (this.hardwareProfile) return this.hardwareProfile;
+
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    const isMobile = /Android|iPhone|iPod|Mobile/i.test(ua);
+    const isTablet = /iPad|Tablet/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua));
+    const ramGB = (typeof navigator !== 'undefined' && navigator.deviceMemory) ? navigator.deviceMemory : (isMobile ? 8 : 16);
+    const cpuCores = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) ? navigator.hardwareConcurrency : 8;
+
+    const profile = {
+      supported: false,
+      isMobile,
+      isTablet,
+      isDesktop: !isMobile && !isTablet,
+      deviceCategory: isMobile ? 'Smartphone' : (isTablet ? 'Tablette' : 'PC / Mac'),
+      gpuVendor: 'Inconnu',
+      gpuArch: '',
+      gpuDescription: 'GPU Standard',
+      maxBufferMB: 256,
+      maxStorageBindingMB: 128,
+      maxWorkgroupStorageKB: 16,
+      hasF16: false,
+      ramGB,
+      cpuCores,
+      tier: 'mobile-standard',
+      tierLabel: 'Smartphone Standard',
+      recommendedModel: 'SmolLM2-360M-Instruct-q4f16_1-MLC',
+      alternativeModel: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
+      reason: 'Modèle ultra-léger recommandé par défaut.'
+    };
+
+    if (typeof navigator === 'undefined' || !('gpu' in navigator)) {
+      profile.reason = 'API WebGPU non supportée sur ce navigateur (utilisez Chrome ou Edge).';
+      this.hardwareProfile = profile;
+      return profile;
+    }
+
+    try {
+      let adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }).catch(() => null);
+      if (!adapter) {
+        adapter = await navigator.gpu.requestAdapter();
+      }
+      if (!adapter) {
+        profile.reason = 'Aucun adaptateur matériel WebGPU détecté.';
+        this.hardwareProfile = profile;
+        return profile;
+      }
+
+      profile.supported = true;
+
+      // Extract GPU info
+      const info = adapter.info || {};
+      const vendor = (info.vendor || '').toLowerCase();
+      const arch = (info.architecture || '').toLowerCase();
+      const desc = info.description || info.device || '';
+
+      profile.gpuVendor = info.vendor ? info.vendor.toUpperCase() : (isMobile ? 'QUALCOMM / ARM' : 'GPU');
+      profile.gpuArch = info.architecture || '';
+      profile.gpuDescription = desc || [profile.gpuVendor, profile.gpuArch].filter(Boolean).join(' ') || 'Adaptateur WebGPU';
+
+      // Extract WebGPU hardware memory & compute limits
+      const limits = adapter.limits || {};
+      profile.maxBufferMB = Math.round((limits.maxBufferSize || 268435456) / (1024 * 1024));
+      profile.maxStorageBindingMB = Math.round((limits.maxStorageBufferBindingSize || 134217728) / (1024 * 1024));
+      profile.maxWorkgroupStorageKB = Math.round((limits.maxComputeWorkgroupStorageSize || 16384) / 1024);
+      profile.hasF16 = adapter.features ? adapter.features.has('shader-f16') : false;
+
+      // Classify device into 4 performance tiers
+      const isDedicatedDesktopGPU =
+        !isMobile &&
+        !isTablet &&
+        (
+          vendor.includes('nvidia') ||
+          vendor.includes('amd') ||
+          vendor.includes('apple') ||
+          (profile.maxBufferMB >= 2048 && profile.maxStorageBindingMB >= 1024 && ramGB >= 8)
+        );
+
+      if (isMobile) {
+        const isFlagshipPhone =
+          profile.hasF16 &&
+          profile.maxBufferMB >= 1024 &&
+          profile.maxStorageBindingMB >= 512 &&
+          ramGB >= 8;
+
+        if (isFlagshipPhone) {
+          profile.tier = 'mobile-flagship';
+          profile.tierLabel = '📱🚀 Smartphone Haut de Gamme (Flagship WebGPU FP16)';
+          profile.recommendedModel = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+          profile.alternativeModel = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+          profile.reason =
+            `Puce mobile haut de gamme (${profile.gpuDescription}, FP16 actif, buffer ${profile.maxBufferMB} Mo, ~${ramGB} Go RAM). ` +
+            `SmolLM2 360M (376 Mo VRAM) est sélectionné pour une vitesse instantanée et 0% de crash pilote Vulkan. ` +
+            `Votre appareil supporte aussi Qwen 2.5 0.5B (360 Mo).`;
+        } else {
+          profile.tier = 'mobile-standard';
+          profile.tierLabel = '📱 Smartphone Standard / Éco';
+          profile.recommendedModel = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+          profile.alternativeModel = null;
+          profile.reason =
+            `Smartphone (${profile.gpuDescription}, binding max ${profile.maxStorageBindingMB} Mo). ` +
+            `SmolLM2 360M (376 Mo VRAM) est le seul modèle garantissant une exécution stable sans dépassement mémoire.`;
+        }
+      } else if (isDedicatedDesktopGPU && profile.maxBufferMB >= 2048 && profile.maxStorageBindingMB >= 1024) {
+        profile.tier = 'pc-desktop';
+        profile.tierLabel = '🖥️ PC Haute Performance / GPU Dédié ou Apple Silicon';
+        profile.recommendedModel = 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
+        profile.alternativeModel = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+        profile.reason =
+          `GPU puissant détecté (${profile.gpuDescription}, buffer max ${profile.maxBufferMB} Mo, binding ${profile.maxStorageBindingMB} Mo, ~${ramGB} Go RAM). ` +
+          `Votre machine peut exécuter Llama 3.2 3B (1.8 Go) à pleine vitesse, ou Llama 3.2 1B (720 Mo) pour des réponses ultra-rapides.`;
+      } else {
+        profile.tier = 'pc-laptop';
+        profile.tierLabel = isTablet ? '📲 Tablette WebGPU' : '💻 PC Portable / GPU Intégré';
+        profile.recommendedModel = isTablet ? 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC' : 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+        profile.alternativeModel = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+        profile.reason =
+          `${profile.deviceCategory} (${profile.gpuDescription}, buffer max ${profile.maxBufferMB} Mo, ~${ramGB} Go RAM). ` +
+          `Le modèle ${profile.recommendedModel.split('-Instruct')[0]} offre le meilleur équilibre entre qualité et fluidité sur ce GPU.`;
+      }
+
+      console.log(
+        `[WebGPU v3.2 Profil Matériel] ${profile.tierLabel} | GPU: ${profile.gpuDescription} | ` +
+        `BufferMax: ${profile.maxBufferMB} Mo | BindingMax: ${profile.maxStorageBindingMB} Mo | FP16: ${profile.hasF16} | ` +
+        `RAM: ~${profile.ramGB} Go | Cœurs: ${profile.cpuCores} => Modèle optimal : ${profile.recommendedModel}`
+      );
+    } catch (err) {
+      console.warn('[WebGPU v3.2] Erreur profilage matériel:', err.message);
+    }
+
+    this.hardwareProfile = profile;
+    return profile;
+  }
+
+  /**
+   * Automatically select the optimal model for this hardware on first run
+   * (while preserving any model already downloaded in offline CacheStorage!)
+   */
+  async autoSelectOptimalModel() {
+    const profile = await this.detectHardwareProfile();
+    if (!profile.supported) return profile;
+
+    // 1. If the user explicitly locked a model choice in Settings, respect it (unless it's a 1B/3B model on mobile that would crash Adreno)
+    const userLocked = localStorage.getItem('webgpu_model_user_locked') === 'true';
+    if (userLocked) {
+      if (profile.isMobile && (this.currentModel.includes('Llama') || this.currentModel.includes('3B'))) {
+        this.currentModel = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+        localStorage.setItem('webgpu_model', this.currentModel);
+      }
+      return profile;
+    }
+
+    // 2. If the currently set model is ALREADY downloaded in offline cache, keep it so we never trigger an unwanted download!
+    const currentIsCached = await this.isModelCached(this.currentModel);
+    if (currentIsCached) {
+      return profile;
+    }
+
+    // 3. Check if any other compatible model is already cached offline
+    for (const m of WEBGPU_MODELS) {
+      if (profile.isMobile && (m.id.includes('Llama') || m.id.includes('3B'))) continue;
+      if (await this.isModelCached(m.id)) {
+        this.currentModel = m.id;
+        localStorage.setItem('webgpu_model', m.id);
+        return profile;
+      }
+    }
+
+    // 4. First time setup (no model cached yet): automatically select the hardware-recommended model!
+    this.currentModel = profile.recommendedModel;
+    localStorage.setItem('webgpu_model', this.currentModel);
+    return profile;
   }
 
   /**
@@ -216,7 +402,7 @@ export class WebGPUEngine {
 
       return shardMatches.every(m => m !== undefined);
     } catch (e) {
-      console.warn('[WebGPU v3.1] Vérification cache complet:', e.message);
+      console.warn('[WebGPU v3.2] Vérification cache complet:', e.message);
       return false;
     }
   }
@@ -265,7 +451,7 @@ export class WebGPUEngine {
 
       const isAlreadyCached = await this.isModelCached(targetModel);
       console.log(
-        `[WebGPU v3.1] Modèle ${targetModel} en cache permanent hors-ligne : ${
+        `[WebGPU v3.2] Modèle ${targetModel} en cache permanent hors-ligne : ${
           isAlreadyCached ? 'OUI (100% Hors-Ligne, 0 Mo réseau)' : 'NON (Téléchargement initial unique requis)'
         }`
       );
@@ -273,7 +459,7 @@ export class WebGPUEngine {
       if (!isAlreadyCached && typeof navigator !== 'undefined' && !navigator.onLine) {
         throw new Error(
           `Le modèle WebGPU (${targetModel}) n'a pas encore été téléchargé dans le cache hors-ligne. ` +
-          `Activez Internet une seule fois pour télécharger les ressources WebGPU (~195 Mo), puis utilisez l'application 100% hors-ligne.`
+          `Activez Internet une seule fois pour télécharger les ressources WebGPU, puis utilisez l'application 100% hors-ligne.`
         );
       }
 
@@ -285,7 +471,7 @@ export class WebGPUEngine {
         if (percent !== lastPercent && (percent % 10 === 0 || percent === 100)) {
           lastPercent = percent;
           console.log(
-            `[WebGPU v3.1 ${fromCache ? 'Cache Local Hors-Ligne -> VRAM' : 'Téléchargement Initial Unique'}] ${text} (${percent}%)`
+            `[WebGPU v3.2 ${fromCache ? 'Cache Local Hors-Ligne -> VRAM' : 'Téléchargement Initial Unique'}] ${text} (${percent}%)`
           );
         }
         const payload = {
@@ -321,7 +507,7 @@ export class WebGPUEngine {
       this.isLoaded = true;
       localStorage.setItem('webgpu_model', targetModel);
       localStorage.setItem(`webgpu_cached_${targetModel}`, 'true');
-      console.log(`[WebGPU v3.1] Modèle ${targetModel} monté en VRAM et prêt (100% Hors-Ligne, fenêtre ${contextWindowSize} tokens).`);
+      console.log(`[WebGPU v3.2] Modèle ${targetModel} monté en VRAM et prêt (100% Hors-Ligne, fenêtre ${contextWindowSize} tokens).`);
       window.dispatchEvent(new CustomEvent('webgpu-ready', { detail: { model: targetModel } }));
       return this.engine;
     })();
@@ -329,7 +515,7 @@ export class WebGPUEngine {
     try {
       return await this.loadPromise;
     } catch (err) {
-      console.error(`[WebGPU v3.1] Erreur dans loadModel(${targetModel}):`, err);
+      console.error(`[WebGPU v3.2] Erreur dans loadModel(${targetModel}):`, err);
       throw err;
     } finally {
       if (onProgress) this.progressListeners.delete(onProgress);
@@ -343,7 +529,7 @@ export class WebGPUEngine {
    * Stream chat completion directly in-browser
    */
   async streamChat(messages, onToken, signal, onLoadingProgress) {
-    console.log(`[WebGPU v3.1] Requête streamChat (${messages.length} messages) pour modèle: ${this.currentModel}`);
+    console.log(`[WebGPU v3.2] Requête streamChat (${messages.length} messages) pour modèle: ${this.currentModel}`);
     if (!this.isLoaded || !this.engine) {
       await this.loadModel(this.currentModel, onLoadingProgress);
     }
@@ -390,7 +576,7 @@ export class WebGPUEngine {
         if (delta) {
           if (tokenCount === 0) {
             const ttft = ((performance.now() - t0) / 1000).toFixed(2);
-            console.log(`[WebGPU v3.1] Premier jeton généré en ${ttft}s !`);
+            console.log(`[WebGPU v3.2] Premier jeton généré en ${ttft}s !`);
           }
           tokenCount++;
           fullText += delta;
@@ -399,7 +585,7 @@ export class WebGPUEngine {
       }
 
       const totalSec = ((performance.now() - t0) / 1000).toFixed(2);
-      console.log(`[WebGPU v3.1] Fin de génération (${tokenCount} jetons en ${totalSec}s, raison: ${finishReason || 'stop'}).`);
+      console.log(`[WebGPU v3.2] Fin de génération (${tokenCount} jetons en ${totalSec}s, raison: ${finishReason || 'stop'}).`);
       return fullText;
     } catch (err) {
       const msg = err?.message || String(err);
@@ -409,10 +595,10 @@ export class WebGPUEngine {
         msg.includes('dropped in popErrorScope') ||
         msg.includes('Buffer was unmapped')
       ) {
-        console.warn('[WebGPU v3.1] Contexte GPU perdu (Device was lost). Réinitialisation de l\'instance.');
+        console.warn('[WebGPU v3.2] Contexte GPU perdu (Device was lost). Réinitialisation de l\'instance.');
         await this.unload();
       }
-      console.error('[WebGPU v3.1] Erreur durant streamChat:', err);
+      console.error('[WebGPU v3.2] Erreur durant streamChat:', err);
       throw err;
     } finally {
       if (signal && abortHandler) {
