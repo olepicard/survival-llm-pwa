@@ -4,12 +4,12 @@
  * WebGPU in-browser engine (default), and external Ollama / llama.cpp engines.
  */
 
-import { LLMClient } from './api.js?v=3.0';
-import { GuidesDB } from './db.js?v=3.0';
-import { EmergencyManager } from './emergency.js?v=3.0';
-import { RAGEngine } from './rag.js?v=3.0';
-import { ArchitectureDetector } from './arch.js?v=3.0';
-import { renderMarkdown, escapeHtml } from './markdown.js?v=3.0';
+import { LLMClient } from './api.js?v=3.1';
+import { GuidesDB } from './db.js?v=3.1';
+import { EmergencyManager } from './emergency.js?v=3.1';
+import { RAGEngine } from './rag.js?v=3.1';
+import { ArchitectureDetector } from './arch.js?v=3.1';
+import { renderMarkdown, escapeHtml } from './markdown.js?v=3.1';
 
 // In-Memory Circular Log Buffer for Mobile UI Debugging
 export const APP_LOGS = [];
@@ -87,7 +87,7 @@ class SurvivalApp {
   }
 
   async init() {
-    console.log('[Survival LLM v3.0] Démarrage PWA (Moteur WebGPU Adreno Safe-Decode v3.0)...');
+    console.log('[Survival LLM v3.1] Démarrage PWA (Architecture 100% Hors-Ligne & Adreno Safe-Decode v3.1)...');
     this.setupServiceWorker();
     this.setupInstallPrompt();
     this.setupTabs();
@@ -131,7 +131,56 @@ class SurvivalApp {
     }
 
     // Update engine badge
-    this.updateEngineDisplayUI();
+    await this.updateEngineDisplayUI();
+
+    window.addEventListener('webgpu-ready', () => {
+      this.updateEngineDisplayUI();
+      this.updateStorageStatusUI();
+    });
+
+    // Auto-mount WebGPU from permanent local cache at startup (or auto-cache once on first online boot)
+    this.autoInitWebGPU();
+  }
+
+  async autoInitWebGPU() {
+    if (this.api.engineMode !== 'webgpu') return;
+
+    try {
+      const targetModel = this.api.webgpu.currentModel;
+      const isCached = await this.api.webgpu.isModelCached(targetModel);
+      const topBadge = document.getElementById('engine-mode-badge');
+
+      if (isCached) {
+        console.log(`[WebGPU v3.1] Modèle ${targetModel} déjà en cache permanent : montage automatique en VRAM au démarrage (0 Mo réseau)...`);
+        if (topBadge) {
+          topBadge.textContent = '⚡ WebGPU Hors-Ligne (Init GPU...)';
+          topBadge.className = 'badge-pill badge-primary';
+        }
+        await this.api.webgpu.loadModel(targetModel, (report) => {
+          if (topBadge && report.percent < 100) {
+            topBadge.textContent = `⚡ WebGPU Cache -> GPU (${report.percent}%)`;
+          }
+        });
+        await this.updateEngineDisplayUI();
+        await this.updateStorageStatusUI();
+      } else if (navigator.onLine) {
+        console.log(`[WebGPU v3.1] 1ère utilisation en ligne : téléchargement automatique unique des ressources WebGPU (${targetModel}) vers le cache permanent...`);
+        if (topBadge) {
+          topBadge.textContent = '📥 WebGPU : Mise en cache unique (0%)';
+          topBadge.className = 'badge-pill badge-warning';
+        }
+        await this.api.webgpu.loadModel(targetModel, (report) => {
+          if (topBadge) {
+            topBadge.textContent = `📥 WebGPU Cache 1ère fois (${report.percent}%)`;
+          }
+        });
+        await this.updateEngineDisplayUI();
+        await this.updateStorageStatusUI();
+      }
+    } catch (err) {
+      console.warn('[WebGPU v3.1] Auto-init en arrière-plan différé:', err.message);
+      await this.updateEngineDisplayUI();
+    }
   }
 
   setupServiceWorker() {
@@ -189,7 +238,7 @@ class SurvivalApp {
     }
   }
 
-  updateEngineDisplayUI() {
+  async updateEngineDisplayUI() {
     const topBadge = document.getElementById('engine-mode-badge');
     const activeBadge = document.getElementById('active-engine-badge');
     const chatDesc = document.getElementById('chat-engine-desc');
@@ -200,9 +249,21 @@ class SurvivalApp {
     let desc = '';
 
     if (mode === 'webgpu') {
-      label = '⚡ WebGPU In-Browser';
-      pillClass = 'badge-pill badge-success';
-      desc = 'Moteur IA actif : <strong>WebGPU Embarqué</strong> (s\'exécute directement sur le GPU de votre appareil, 100% hors-ligne, aucun terminal).';
+      const isReady = this.api.webgpu.isLoaded;
+      const isCached = isReady || await this.api.webgpu.isModelCached();
+      if (isReady) {
+        label = '⚡ WebGPU Prêt (100% Hors-Ligne) ✅';
+        pillClass = 'badge-pill badge-success';
+        desc = 'Moteur IA actif : <strong>WebGPU Embarqué (Prêt en VRAM • 100% Hors-Ligne)</strong> — toutes les ressources sont en cache local permanent, zéro réseau requis.';
+      } else if (isCached) {
+        label = '⚡ WebGPU En Cache (Hors-Ligne) ✅';
+        pillClass = 'badge-pill badge-success';
+        desc = 'Moteur IA actif : <strong>WebGPU Embarqué (En Cache Permanent)</strong> — toutes les ressources sont téléchargées et fonctionnent 100% hors-ligne.';
+      } else {
+        label = '⚡ WebGPU In-Browser';
+        pillClass = 'badge-pill badge-primary';
+        desc = 'Moteur IA actif : <strong>WebGPU Embarqué</strong> (s\'exécute directement sur le GPU de votre appareil, 100% hors-ligne après le 1er téléchargement unique).';
+      }
     } else if (mode === 'ollama') {
       label = '📱 Ollama Local (11434)';
       pillClass = 'badge-pill badge-primary';
@@ -230,6 +291,7 @@ class SurvivalApp {
 
   async updateStorageStatusUI() {
     const stats = await this.db.getStorageStats();
+    const isWebGPUCached = await this.api.webgpu.isModelCached();
     const modeBadge = document.getElementById('storage-mode-badge');
     const statusPill = document.getElementById('storage-status-pill');
     const usageText = document.getElementById('storage-usage-text');
@@ -238,11 +300,16 @@ class SurvivalApp {
     const persistHint = document.getElementById('storage-persistence-hint');
     const promptDeviceStats = document.getElementById('prompt-device-stats');
 
-    const isFull = stats.isFullOffline;
+    const isFullGuides = stats.isFullOffline;
 
     if (modeBadge) {
-      if (isFull) {
-        modeBadge.textContent = 'Full Hors-Ligne (16 Mo) ✅';
+      if (isFullGuides && isWebGPUCached) {
+        modeBadge.textContent = 'Full Hors-Ligne (Guides + IA) ✅';
+        modeBadge.className = 'badge-pill badge-success';
+      } else if (isFullGuides || isWebGPUCached) {
+        modeBadge.textContent = isWebGPUCached
+          ? 'IA Hors-Ligne Prête ✅'
+          : 'Guides Hors-Ligne (16 Mo) ✅';
         modeBadge.className = 'badge-pill badge-success';
       } else {
         modeBadge.textContent = 'Mode Partiel (1.5 Mo) ⚠️';
@@ -251,9 +318,12 @@ class SurvivalApp {
     }
 
     if (statusPill) {
-      if (isFull) {
-        statusPill.textContent = 'Complet (670 guides prêts)';
+      if (isFullGuides && isWebGPUCached) {
+        statusPill.textContent = '100% Hors-Ligne (670 guides + IA WebGPU)';
         statusPill.className = 'badge-pill badge-success';
+      } else if (isFullGuides) {
+        statusPill.textContent = 'Guides prêts (IA WebGPU à mettre en cache)';
+        statusPill.className = 'badge-pill badge-warning';
       } else {
         statusPill.textContent = 'Partiel (Index + SOS)';
         statusPill.className = 'badge-pill badge-warning';
@@ -375,13 +445,36 @@ class SurvivalApp {
     if (progressContainer) progressContainer.style.display = 'block';
 
     try {
+      // Étape 1 : Téléchargement des 670 guides complets hors-ligne (16 Mo)
       await this.db.downloadAllGuides((info) => {
-        if (statusText) statusText.textContent = info.status;
-        if (percentText) percentText.textContent = `${info.percent}%`;
-        if (fillEl) fillEl.style.width = `${info.percent}%`;
+        if (statusText) statusText.textContent = `[1/2 Guides] ${info.status}`;
+        if (percentText) percentText.textContent = `${Math.round(info.percent * 0.3)}%`;
+        if (fillEl) fillEl.style.width = `${Math.round(info.percent * 0.3)}%`;
       });
 
+      // Étape 2 : Téléchargement unique & verrouillage de toutes les ressources WebGPU (WASM, Config, Tokenizer, Poids)
+      if (this.api.engineMode === 'webgpu') {
+        const targetModel = this.api.webgpu.currentModel;
+        if (statusText) statusText.textContent = `[2/2 IA WebGPU] Vérification et mise en cache permanente de ${targetModel}...`;
+        await this.api.webgpu.loadModel(targetModel, (report) => {
+          const totalPct = 30 + Math.round((report.percent || 0) * 0.7);
+          if (statusText) {
+            statusText.textContent = report.fromCache
+              ? `[2/2 IA WebGPU] Lecture du cache local vers VRAM (${report.percent}%)`
+              : `[2/2 IA WebGPU] Téléchargement unique hors-ligne (${report.percent}%)`;
+          }
+          if (percentText) percentText.textContent = `${totalPct}%`;
+          if (fillEl) fillEl.style.width = `${totalPct}%`;
+        });
+      }
+
+      if (percentText) percentText.textContent = '100%';
+      if (fillEl) fillEl.style.width = '100%';
+      if (statusText) statusText.textContent = '✅ Pack 100% Hors-Ligne (670 Guides + IA WebGPU) verrouillé !';
+
       localStorage.setItem('storage_prompt_shown', 'true');
+      localStorage.setItem('storage_offline_mode', 'full');
+      await this.updateEngineDisplayUI();
       await this.updateStorageStatusUI();
 
       setTimeout(() => {
@@ -390,13 +483,13 @@ class SurvivalApp {
           const modal = document.getElementById('storage-prompt-modal');
           if (modal) modal.close();
         }
-        alert('🎉 Mode Full Hors-Ligne activé ! Tous les 670 guides sont enregistrés sur votre appareil.');
-      }, 1000);
+        alert('🎉 Mode 100% Full Hors-Ligne activé ! Les 670 guides ET toutes les ressources WebGPU sont enregistrés de façon permanente sur votre appareil (utilisables en mode avion sans aucun rechargement).');
+      }, 800);
 
     } catch (err) {
       console.error('Download error:', err);
       if (statusText) statusText.textContent = `Erreur: ${err.message}`;
-      alert(`Erreur lors du téléchargement des guides : ${err.message}\nVérifiez votre connexion Internet pour le téléchargement initial.`);
+      alert(`Erreur lors du téléchargement hors-ligne : ${err.message}\nVérifiez votre connexion Internet pour le téléchargement initial unique.`);
     } finally {
       this.isDownloadingGuides = false;
     }
