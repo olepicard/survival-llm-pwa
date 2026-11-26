@@ -130,6 +130,46 @@ body {
   gap: 10px;
 }
 
+/* Language Toggle Button */
+.btn-lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: var(--bg-subtle, #1e293b);
+  border: 1px solid var(--border, #2e3c54);
+  color: var(--text-main, #f8fafc);
+  padding: 5px 10px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.btn-lang-toggle:hover {
+  background: var(--bg-hover, #26334d);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+.btn-lang-toggle:active {
+  transform: translateY(0);
+}
+
+.lang-flag {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.lang-text {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
 /* RAG Switch */
 .rag-switch {
   display: flex;

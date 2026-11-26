@@ -20,7 +20,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=3.3">
+  <link rel="stylesheet" href="css/styles.css?v=3.4">
 </head>
 <body>
   <div id="app" class="app-layout">
@@ -29,15 +29,18 @@
       <div class="header-brand">
         <img src="icons/icon.svg" alt="Logo" class="app-logo">
         <div class="header-titles">
-          <h1>Survival LLM <small style="font-size:0.62em;opacity:0.8;font-weight:500;">v3.3</small></h1>
+          <h1>Survival LLM <small style="font-size:0.62em;opacity:0.8;font-weight:500;">v3.4</small></h1>
           <div class="header-sub">
-            <span id="status-badge" class="status-badge">Initialisation...</span>
+            <span id="status-badge" class="status-badge" data-i18n="status_checking">Initialisation...</span>
             <span id="engine-mode-badge" class="badge-pill badge-primary">⚡ WebGPU In-Browser</span>
             <span id="storage-mode-badge" class="badge-pill badge-neutral">Mode Stockage...</span>
           </div>
         </div>
       </div>
       <div class="header-actions">
+        <button id="btn-lang-toggle" class="btn btn-sm btn-lang-toggle" title="Switch Language / Changer de langue" type="button">
+          <span class="lang-flag" id="lang-flag-icon">🇬🇧</span> <span class="lang-text" id="lang-label-text">EN</span>
+        </button>
         <label class="rag-switch" title="Activer la recherche dans les 670 guides hors-ligne">
           <input type="checkbox" id="toggle-rag-checkbox" checked>
           <span class="rag-slider"></span>
@@ -76,6 +79,7 @@
               id="chat-input"
               rows="1"
               placeholder="Posez votre question de survie ou d'urgence..."
+              data-i18n-placeholder="chat_input_placeholder"
               required
             ></textarea>
             <button type="submit" id="btn-send-chat" class="btn-send" title="Envoyer">
@@ -98,7 +102,7 @@
         <div class="guides-toolbar">
           <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input type="search" id="guides-search-input" placeholder="Rechercher dans 670 guides (garrot, eau, radio, abri...)" />
+            <input type="search" id="guides-search-input" placeholder="Rechercher dans 670 guides (garrot, eau, radio, abri...)" data-i18n-placeholder="search_guides_placeholder" />
           </div>
           <select id="guides-theme-select" class="theme-select">
             <option value="all">Tous les thèmes</option>
@@ -386,19 +390,19 @@
     <nav class="app-bottom-nav">
       <button class="nav-tab-btn active" data-tab="chat">
         <span class="nav-icon">💬</span>
-        <span class="nav-label">Chat IA</span>
+        <span class="nav-label" data-i18n="nav_chat">Chat IA</span>
       </button>
       <button class="nav-tab-btn" data-tab="sos">
         <span class="nav-icon">🚨</span>
-        <span class="nav-label">SOS Réflexes</span>
+        <span class="nav-label" data-i18n="nav_emergency">SOS Réflexes</span>
       </button>
       <button class="nav-tab-btn" data-tab="guides">
         <span class="nav-icon">📚</span>
-        <span class="nav-label">Guides (670)</span>
+        <span class="nav-label" data-i18n="nav_guides">Guides (670)</span>
       </button>
       <button class="nav-tab-btn" data-tab="settings">
         <span class="nav-icon">⚙️</span>
-        <span class="nav-label">Réglages</span>
+        <span class="nav-label" data-i18n="nav_settings">Réglages</span>
       </button>
     </nav>
 
@@ -475,10 +479,10 @@
     </dialog>
 
     <!-- Save Notification Toast -->
-    <div id="settings-toast" class="toast">Réglages enregistrés avec succès !</div>
+    <div id="settings-toast" class="toast" data-i18n="toast_settings_saved">Réglages enregistrés avec succès !</div>
   </div>
 
   <!-- Entry Script -->
-  <script type="module" src="js/app.js?v=3.3"></script>
+  <script type="module" src="js/app.js?v=3.4"></script>
 </body>
 </html>

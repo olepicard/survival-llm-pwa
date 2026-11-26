@@ -4,13 +4,14 @@
  * WebGPU in-browser engine (default), and external Ollama / llama.cpp engines.
  */
 
-import { LLMClient } from './api.js?v=3.3';
-import { WEBGPU_MODELS } from './webgpu.js?v=3.3';
-import { GuidesDB } from './db.js?v=3.3';
-import { EmergencyManager } from './emergency.js?v=3.3';
-import { RAGEngine } from './rag.js?v=3.3';
-import { ArchitectureDetector } from './arch.js?v=3.3';
-import { renderMarkdown, escapeHtml } from './markdown.js?v=3.3';
+import { LLMClient } from './api.js?v=3.4';
+import { WEBGPU_MODELS } from './webgpu.js?v=3.4';
+import { GuidesDB } from './db.js?v=3.4';
+import { EmergencyManager } from './emergency.js?v=3.4';
+import { RAGEngine } from './rag.js?v=3.4';
+import { ArchitectureDetector } from './arch.js?v=3.4';
+import { renderMarkdown, escapeHtml } from './markdown.js?v=3.4';
+import { detectInitialLanguage, getLanguage, setLanguage, t, updateDOMTranslations } from './i18n.js?v=3.4';
 
 // In-Memory Circular Log Buffer for Mobile UI Debugging
 export const APP_LOGS = [];
@@ -70,6 +71,7 @@ window.addEventListener('unhandledrejection', (event) => {
 
 class SurvivalApp {
   constructor() {
+    this.currentLanguage = detectInitialLanguage();
     this.api = new LLMClient();
     this.db = new GuidesDB();
     this.emergency = new EmergencyManager(this);
@@ -88,7 +90,9 @@ class SurvivalApp {
   }
 
   async init() {
-    console.log('[Survival LLM v3.2] Démarrage PWA (Détection Matérielle Auto + 100% Hors-Ligne v3.2)...');
+    console.log(`[Survival LLM v3.4] Démarrage PWA (Langue: ${this.currentLanguage.toUpperCase()})...`);
+    updateDOMTranslations(this.currentLanguage);
+    this.setupLanguageUI();
     this.setupServiceWorker();
     this.setupInstallPrompt();
     this.setupTabs();
@@ -131,6 +135,76 @@ class SurvivalApp {
 
     // Auto-mount WebGPU from permanent local cache at startup (or auto-cache once on first online boot)
     this.autoInitWebGPU();
+  }
+
+  setupLanguageUI() {
+    this.updateLangToggleUI();
+    const btn = document.getElementById('btn-lang-toggle');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        const nextLang = this.currentLanguage === 'fr' ? 'en' : 'fr';
+        this.setLanguage(nextLang);
+      });
+    }
+  }
+
+  updateLangToggleUI() {
+    const flagEl = document.getElementById('lang-flag-icon');
+    const labelEl = document.getElementById('lang-label-text');
+    const btnEl = document.getElementById('btn-lang-toggle');
+    if (this.currentLanguage === 'en') {
+      if (flagEl) flagEl.textContent = '🇫🇷';
+      if (labelEl) labelEl.textContent = 'FR';
+      if (btnEl) btnEl.title = 'Basculer en français / Switch to French';
+    } else {
+      if (flagEl) flagEl.textContent = '🇬🇧';
+      if (labelEl) labelEl.textContent = 'EN';
+      if (btnEl) btnEl.title = 'Switch to English / Basculer en anglais';
+    }
+  }
+
+  setLanguage(lang) {
+    if (lang !== 'fr' && lang !== 'en') return;
+    this.currentLanguage = lang;
+    setLanguage(lang);
+    this.updateLangToggleUI();
+    this.renderWelcomeScreen();
+    if (this.emergency) {
+      const sosContainer = document.getElementById('sos-container');
+      if (sosContainer) this.emergency.renderEmergencyGrid(sosContainer);
+    }
+    this.renderGuidesThemeSelector();
+    this.searchAndRenderGuides();
+    this.updateEngineDisplayUI();
+    this.updateOnlineStatus();
+
+    const sysPromptInput = document.getElementById('setting-system-prompt');
+    if (sysPromptInput && (!sysPromptInput.value || sysPromptInput.value.includes('Survival LLM'))) {
+      sysPromptInput.value = this.api.getDefaultSystemPrompt(lang);
+    }
+  }
+
+  renderWelcomeScreen() {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    // Only render welcome screen if there is no chat history
+    if (this.chatHistory && this.chatHistory.length > 0) return;
+
+    const lang = this.currentLanguage;
+    container.innerHTML = `
+      <div class="chat-welcome">
+        <div class="welcome-icon">🛡️</div>
+        <h3>${escapeHtml(t('welcome_title', lang))}</h3>
+        <p id="chat-engine-desc">${escapeHtml(t('welcome_desc', lang))}</p>
+        <div class="quick-prompts">
+          <button class="btn-prompt-chip" data-q="${escapeHtml(t('chip_water_q', lang))}">${escapeHtml(t('chip_water', lang))}</button>
+          <button class="btn-prompt-chip" data-q="${escapeHtml(t('chip_bleeding_q', lang))}">${escapeHtml(t('chip_bleeding', lang))}</button>
+          <button class="btn-prompt-chip" data-q="${escapeHtml(t('chip_shelter_q', lang))}">${escapeHtml(t('chip_shelter', lang))}</button>
+          <button class="btn-prompt-chip" data-q="${escapeHtml(t('chip_botulism_q', lang))}">${escapeHtml(t('chip_botulism', lang))}</button>
+        </div>
+      </div>
+    `;
+    this.attachQuickPrompts();
   }
 
   renderWebGPUHardwareProfileUI(profile) {
@@ -269,11 +343,12 @@ class SurvivalApp {
   updateOnlineStatus() {
     const badge = document.getElementById('status-badge');
     if (!badge) return;
+    const isEn = this.currentLanguage === 'en';
     if (navigator.onLine) {
-      badge.textContent = 'En ligne';
+      badge.textContent = isEn ? 'Online' : 'En ligne';
       badge.className = 'status-badge online';
     } else {
-      badge.textContent = 'Hors-ligne (Avion)';
+      badge.textContent = isEn ? 'Offline (Airplane)' : 'Hors-ligne (Avion)';
       badge.className = 'status-badge offline';
     }
   }
@@ -282,6 +357,7 @@ class SurvivalApp {
     const topBadge = document.getElementById('engine-mode-badge');
     const activeBadge = document.getElementById('active-engine-badge');
     const chatDesc = document.getElementById('chat-engine-desc');
+    const isEn = this.currentLanguage === 'en';
 
     const mode = this.api.engineMode;
     let label = '';
@@ -292,26 +368,36 @@ class SurvivalApp {
       const isReady = this.api.webgpu.isLoaded;
       const isCached = isReady || await this.api.webgpu.isModelCached();
       if (isReady) {
-        label = '⚡ WebGPU Prêt (100% Hors-Ligne) ✅';
+        label = isEn ? '⚡ WebGPU Ready (100% Offline) ✅' : '⚡ WebGPU Prêt (100% Hors-Ligne) ✅';
         pillClass = 'badge-pill badge-success';
-        desc = 'Moteur IA actif : <strong>WebGPU Embarqué (Prêt en VRAM • 100% Hors-Ligne)</strong> — toutes les ressources sont en cache local permanent, zéro réseau requis.';
+        desc = isEn
+          ? 'Active AI Engine: <strong>Embedded WebGPU (Ready in VRAM • 100% Offline)</strong> — all resources stored in permanent local cache, zero network required.'
+          : 'Moteur IA actif : <strong>WebGPU Embarqué (Prêt en VRAM • 100% Hors-Ligne)</strong> — toutes les ressources sont en cache local permanent, zéro réseau requis.';
       } else if (isCached) {
-        label = '⚡ WebGPU En Cache (Hors-Ligne) ✅';
+        label = isEn ? '⚡ WebGPU Cached (Offline) ✅' : '⚡ WebGPU En Cache (Hors-Ligne) ✅';
         pillClass = 'badge-pill badge-success';
-        desc = 'Moteur IA actif : <strong>WebGPU Embarqué (En Cache Permanent)</strong> — toutes les ressources sont téléchargées et fonctionnent 100% hors-ligne.';
+        desc = isEn
+          ? 'Active AI Engine: <strong>Embedded WebGPU (Permanent Cache)</strong> — all weights are downloaded and run 100% offline.'
+          : 'Moteur IA actif : <strong>WebGPU Embarqué (En Cache Permanent)</strong> — toutes les ressources sont téléchargées et fonctionnent 100% hors-ligne.';
       } else {
         label = '⚡ WebGPU In-Browser';
         pillClass = 'badge-pill badge-primary';
-        desc = 'Moteur IA actif : <strong>WebGPU Embarqué</strong> (s\'exécute directement sur le GPU de votre appareil, 100% hors-ligne après le 1er téléchargement unique).';
+        desc = isEn
+          ? 'Active AI Engine: <strong>Embedded WebGPU</strong> (runs directly on device GPU, 100% offline after one-time download).'
+          : 'Moteur IA actif : <strong>WebGPU Embarqué</strong> (s\'exécute directement sur le GPU de votre appareil, 100% hors-ligne après le 1er téléchargement unique).';
       }
     } else if (mode === 'ollama') {
-      label = '📱 Ollama Local (11434)';
+      label = isEn ? '📱 Ollama Local (11434)' : '📱 Ollama Local (11434)';
       pillClass = 'badge-pill badge-primary';
-      desc = 'Moteur IA actif : <strong>Ollama / llama.cpp</strong> (port 11434 via Termux ou PC distant).';
+      desc = isEn
+        ? 'Active AI Engine: <strong>Ollama / llama.cpp</strong> (port 11434 via Termux or PC).'
+        : 'Moteur IA actif : <strong>Ollama / llama.cpp</strong> (port 11434 via Termux ou PC distant).';
     } else {
-      label = '🤖 Serveur API (8080)';
+      label = isEn ? '🤖 Local API (8080)' : '🤖 Serveur API (8080)';
       pillClass = 'badge-pill badge-neutral';
-      desc = 'Moteur IA actif : <strong>Serveur Compatible OpenAI</strong> (PocketPal / LocalAI).';
+      desc = isEn
+        ? 'Active AI Engine: <strong>OpenAI-Compatible Server</strong> (PocketPal / LocalAI).'
+        : 'Moteur IA actif : <strong>Serveur Compatible OpenAI</strong> (PocketPal / LocalAI).';
     }
 
     if (topBadge) {
@@ -706,28 +792,14 @@ class SurvivalApp {
 
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
-        if (confirm('Effacer l\'historique de la conversation ?')) {
+        if (confirm(t('chat_clear_confirm', this.currentLanguage))) {
           this.chatHistory = [];
-          const container = document.getElementById('chat-messages');
-          container.innerHTML = `
-            <div class="chat-welcome">
-              <div class="welcome-icon">🛡️</div>
-              <h3>Assistant de Survie & Secourisme</h3>
-              <p>Posez vos questions d'urgence, de premiers soins, d'autonomie ou de gestion de crise.</p>
-              <div class="quick-prompts">
-                <button class="btn-prompt-chip" data-q="Comment fabriquer un filtre à eau avec du sable et du charbon ?">💧 Filtre à eau naturel</button>
-                <button class="btn-prompt-chip" data-q="Quelles sont les priorités absolues en cas d'accident avec hémorragie ?">🩸 Urgence hémorragie</button>
-                <button class="btn-prompt-chip" data-q="Comment construire un abri anti-froid en forêt ?">🏕️ Abri d'urgence</button>
-                <button class="btn-prompt-chip" data-q="Quels aliments stériliser à la cocotte-minute contre le botulisme ?">🥫 Prévention botulisme</button>
-              </div>
-            </div>
-          `;
-          this.attachQuickPrompts();
+          this.renderWelcomeScreen();
         }
       });
     }
 
-    this.attachQuickPrompts();
+    this.renderWelcomeScreen();
   }
 
   attachQuickPrompts() {
@@ -789,15 +861,20 @@ class SurvivalApp {
 
     // 2. Prepare Context (RAG) - compact mode when using WebGPU for ultra-fast mobile GPU prefill
     const isWebGPU = this.api.engineMode === 'webgpu';
+    const lang = this.currentLanguage;
     let ragResult = { contextText: '', sources: [] };
     if (forcedContext) {
       ragResult.contextText = isWebGPU
-        ? `DIRECTIVES DE SURVIE ET SECOURS :\n${forcedContext.slice(0, 350)}\n\nQUESTION DE L'UTILISATEUR :\n${text}\n\nConsigne : Réponds exclusivement en français, de manière concise, directe et structurée par étapes d'action numérotées (1, 2, 3) en t'appuyant rigoureusement sur ces directives.`
-        : `--- DIRECTIVES TECHNIQUES DE SURVIE HORS-LIGNE ---\n${forcedContext}\n--- FIN DES DIRECTIVES ---\n\nQUESTION DE L'UTILISATEUR :\n${text}\n\nConsigne : Réponds en français de manière claire, structurée et immédiatement applicable (étapes numérotées 1, 2, 3).`;
-      ragResult.sources = [{ title: 'Protocole SOS Direct', id: 0 }];
+        ? (lang === 'en'
+            ? `SURVIVAL & FIRST AID DIRECTIVES :\n${forcedContext.slice(0, 350)}\n\nUSER QUESTION :\n${text}\n\nInstructions: Respond strictly in English in a concise, direct, and structured manner with numbered action steps (1, 2, 3) adhering strictly to these directives.`
+            : `DIRECTIVES DE SURVIE ET SECOURS :\n${forcedContext.slice(0, 350)}\n\nQUESTION DE L'UTILISATEUR :\n${text}\n\nConsigne : Réponds exclusivement en français, de manière concise, directe et structurée par étapes d'action numérotées (1, 2, 3) en t'appuyant rigoureusement sur ces directives.`)
+        : (lang === 'en'
+            ? `--- OFFLINE SURVIVAL & FIRST AID DIRECTIVES ---\n${forcedContext}\n--- END OF DIRECTIVES ---\n\nUSER QUESTION :\n${text}\n\nInstructions: Respond strictly in English in a clear, concise, and structured manner with numbered action steps (1, 2, 3).`
+            : `--- DIRECTIVES TECHNIQUES DE SURVIE HORS-LIGNE ---\n${forcedContext}\n--- FIN DES DIRECTIVES ---\n\nQUESTION DE L'UTILISATEUR :\n${text}\n\nConsigne : Réponds en français de manière claire, structurée et immédiatement applicable (étapes numérotées 1, 2, 3).`);
+      ragResult.sources = [{ title: lang === 'en' ? 'Direct SOS Protocol' : 'Protocole SOS Direct', id: 0 }];
     } else if (this.rag.enabled) {
       try {
-        ragResult = await this.rag.retrieveContext(text, isWebGPU);
+        ragResult = await this.rag.retrieveContext(text, isWebGPU, lang);
       } catch (err) {
         console.warn('RAG retrieval failed:', err);
       }
@@ -814,7 +891,7 @@ class SurvivalApp {
     let sourcesHtml = '';
     if (ragResult.sources.length) {
       const badges = ragResult.sources.map(s => `<span class="source-tag">${escapeHtml(s.title)}</span>`).join(' ');
-      sourcesHtml = `<div class="msg-sources"><span class="sources-title">📚 Sources locales consultées :</span> ${badges}</div>`;
+      sourcesHtml = `<div class="msg-sources"><span class="sources-title">${escapeHtml(t('sources_consulted', lang))}</span> ${badges}</div>`;
     }
 
     const modelDisplayName = this.api.engineMode === 'webgpu' 
@@ -828,7 +905,7 @@ class SurvivalApp {
         <div class="msg-bubble streaming-cursor">...</div>
         <div class="msg-footer">
           <span class="msg-model">${escapeHtml(modelDisplayName)}</span>
-          <button class="btn-copy-msg" title="Copier la réponse">📋</button>
+          <button class="btn-copy-msg" title="${escapeHtml(t('copy_btn_title', lang))}">📋</button>
         </div>
       </div>
     `;
@@ -1025,11 +1102,14 @@ class SurvivalApp {
     const select = document.getElementById('guides-theme-select');
     if (!select || !this.db.indexData || !this.db.indexData.themes) return;
 
-    select.innerHTML = '<option value="all">Tous les thèmes (670 guides)</option>';
+    const isEn = this.currentLanguage === 'en';
+    const allLabel = isEn ? 'All themes (670 guides)' : 'Tous les thèmes (670 guides)';
+    select.innerHTML = `<option value="all">${allLabel}</option>`;
     const themes = this.db.indexData.themes;
     for (const key of Object.keys(themes)) {
       const th = themes[key];
-      select.innerHTML += `<option value="${key}">${th.icon} ${th.title}</option>`;
+      const title = isEn ? (t('filter_' + key, 'en') || th.title) : th.title;
+      select.innerHTML += `<option value="${key}">${th.icon} ${title}</option>`;
     }
   }
 
@@ -1042,13 +1122,19 @@ class SurvivalApp {
 
     const query = searchInput ? searchInput.value : '';
     const theme = themeSelect ? themeSelect.value : 'all';
+    const isEn = this.currentLanguage === 'en';
 
-    listContainer.innerHTML = '<div class="loading-spinner">Recherche des guides...</div>';
+    listContainer.innerHTML = `<div class="loading-spinner">${isEn ? 'Searching guides...' : 'Recherche des guides...'}</div>`;
 
     const results = await this.db.searchGuides(query, theme, 60);
 
     if (results.length === 0) {
-      listContainer.innerHTML = `
+      listContainer.innerHTML = isEn ? `
+        <div class="empty-state">
+          <p>🔍 No guides match "${escapeHtml(query)}".</p>
+          <small>Try other keywords: water, fire, bleeding, tourniquet, shelter, food, canning...</small>
+        </div>
+      ` : `
         <div class="empty-state">
           <p>🔍 Aucun guide ne correspond à « ${escapeHtml(query)} ».</p>
           <small>Essayez d'autres mots-clés : eau, feu, fracture, garrot, radio, abri, conserves...</small>
@@ -1056,6 +1142,9 @@ class SurvivalApp {
       `;
       return;
     }
+
+    const readBtnText = isEn ? '📖 Read guide' : '📖 Lire le guide';
+    const askAiBtnText = isEn ? '💬 Ask AI' : '💬 Interroger l\'IA';
 
     listContainer.innerHTML = '';
     results.forEach(g => {
@@ -1070,10 +1159,10 @@ class SurvivalApp {
         <p class="guide-card-snippet">${escapeHtml(g.snippet || '')}</p>
         <div class="guide-card-actions">
           <button class="btn btn-sm btn-outline btn-read-guide" data-id="${g.id}">
-            📖 Lire le guide
+            ${readBtnText}
           </button>
           <button class="btn btn-sm btn-secondary btn-ask-ai-guide" data-id="${g.id}" data-title="${escapeHtml(g.title)}">
-            💬 Interroger l'IA
+            ${askAiBtnText}
           </button>
         </div>
       `;
@@ -1084,7 +1173,10 @@ class SurvivalApp {
 
       card.querySelector('.btn-ask-ai-guide').addEventListener('click', () => {
         this.switchTab('chat');
-        this.sendChatMessage(`Peux-tu me résumer les consignes clés du guide de survie : "${g.title}" ?`);
+        const qText = isEn
+          ? `Could you summarize the key survival instructions from: "${g.title}"?`
+          : `Peux-tu me résumer les consignes clés du guide de survie : "${g.title}" ?`;
+        this.sendChatMessage(qText);
       });
 
       listContainer.appendChild(card);

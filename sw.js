@@ -1,4 +1,4 @@
-const CACHE_NAME = 'survival-llm-v3.3';
+const CACHE_NAME = 'survival-llm-v3.4';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -13,6 +13,7 @@ const CORE_ASSETS = [
   './js/db.js',
   './js/emergency.js',
   './js/markdown.js',
+  './js/i18n.js',
   './data/emergency_protocols.json',
   './data/guides_index.json',
   './icons/icon.svg',

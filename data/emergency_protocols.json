@@ -30,6 +30,34 @@
         "membre",
         "amputation",
         "cabestan"
+      ],
+      "title_en": "Tourniquet Application & Severe Bleeding",
+      "summary_en": "Massive external bleeding life-threatening within 3 minutes (femoral or brachial artery).",
+      "steps_en": [
+        "Immediately apply strong direct pressure with the palm or a pressure dressing if the tourniquet is not immediately accessible.",
+        "Place the tourniquet 5 to 7 cm (2-3 inches) ABOVE the wound (between the wound and the heart). NEVER place directly over a joint (knee, elbow).",
+        "Pull the strap as tightly as possible before beginning to turn the windlass (tightening rod).",
+        "Turn the windlass until bleeding COMPLETELY stops and the distal pulse disappears.",
+        "Firmly lock the windlass into its safety clip.",
+        "Write the EXACT TIME of application with an indelible marker directly on the tourniquet or on the victim's forehead (e.g., T 14:32).",
+        "CRITICAL: NEVER loosen, release, or remove an applied tourniquet without specialized medical supervision."
+      ],
+      "warnings_en": [
+        "A loose tourniquet worsens venous bleeding without stopping arterial blood flow.",
+        "Severe pain is normal and intense: do not loosen because of pain."
+      ],
+      "keywords_en": [
+        "tourniquet",
+        "bleeding",
+        "hemorrhage",
+        "artery",
+        "blood",
+        "cat",
+        "wound",
+        "limb",
+        "amputation",
+        "windlass",
+        "severe"
       ]
     },
     {
@@ -65,6 +93,35 @@
         "respiration",
         "arret",
         "pouls"
+      ],
+      "title_en": "Cardiac Arrest & Cardiopulmonary Resuscitation (CPR)",
+      "summary_en": "Unconscious victim who is not breathing or only taking ineffective agonal gasps.",
+      "steps_en": [
+        "Ensure the safety of the scene (no electrical, toxic, or structural collapse hazards).",
+        "Check responsiveness: gently shake shoulders and shout loudly: 'Can you hear me?'",
+        "Open airway (careful head-tilt, chin-lift) and check breathing for no more than 10 seconds.",
+        "Call emergency services immediately (911 / 112 / 15) and call for an AED (Automated External Defibrillator).",
+        "Place the heel of one hand in the center of the chest (lower half of breastbone), place other hand on top with interlocking fingers. Keep arms straight and shoulders directly above hands.",
+        "Compress chest firmly and rapidly at a rate of 100 to 120 beats per minute (rhythm of 'Stayin Alive') to a depth of 5 to 6 cm (2 to 2.4 inches).",
+        "If trained: alternate 30 chest compressions with 2 short rescue breaths. If untrained or without barrier device: perform hands-only continuous chest compressions without pause.",
+        "As soon as the AED arrives: turn it on immediately and strictly follow its voice and visual prompts."
+      ],
+      "warnings_en": [
+        "Do not interrupt chest compressions for more than 5 seconds.",
+        "Each minute without CPR reduces survival chances by 10%."
+      ],
+      "keywords_en": [
+        "cpr",
+        "cardiac",
+        "arrest",
+        "resuscitation",
+        "compression",
+        "defibrillator",
+        "aed",
+        "unconscious",
+        "breathing",
+        "heart",
+        "pulse"
       ]
     },
     {
@@ -97,6 +154,32 @@
         "claques",
         "asphyxie",
         "etouffer"
+      ],
+      "title_en": "Choking & Heimlich Maneuver",
+      "summary_en": "Sudden, complete obstruction of the airway by a foreign object (victim cannot speak, cough, or breathe).",
+      "steps_en": [
+        "If the victim is coughing forcefully: DO NOTHING except encourage coughing. Do not slap their back while coughing.",
+        "If complete obstruction (victim clutches neck with both hands, panic, complete silence, turning blue): lean the victim forward.",
+        "Deliver 5 firm back blows between the shoulder blades using the heel of your open hand.",
+        "If back blows fail: perform 5 abdominal thrusts (Heimlich maneuver).",
+        "Heimlich positioning: stand behind victim, wrap arms around waist, make a fist placed just above the navel and well below the breastbone, grasp fist with other hand and pull sharply inward and upward (J-thrust).",
+        "Alternate 5 back blows and 5 abdominal thrusts until the object is expelled.",
+        "If the victim becomes unconscious: lower them carefully to the ground and start CPR (chest compressions) immediately."
+      ],
+      "warnings_en": [
+        "Pregnant women or obese individuals: replace abdominal thrusts with chest thrusts (center of breastbone)."
+      ],
+      "keywords_en": [
+        "choking",
+        "heimlich",
+        "suffocation",
+        "airway",
+        "obstruction",
+        "thrust",
+        "back blow",
+        "throat",
+        "swallow",
+        "asphyxia"
       ]
     },
     {
@@ -131,6 +214,35 @@
         "aquatabs",
         "bouillir",
         "boire"
+      ],
+      "title_en": "Emergency Water Purification",
+      "summary_en": "Transforming questionable, contaminated, or raw water into safe drinking water.",
+      "steps_en": [
+        "Preliminary clarification: if water is cloudy or turbid, let it settle then filter through a clean cloth, coffee filter, or improvised sand/charcoal filter.",
+        "METHOD 1 (Boiling - Gold Standard): Bring water to a rolling boil for a full 1 minute (3 minutes if altitude > 2,000 m / 6,500 ft). Kills all bacteria, viruses, and parasites (Giardia, Cryptosporidium).",
+        "METHOD 2 (Chemical Disinfection with unscented household bleach 2.6% to 5%): 2 to 4 drops per liter (8 drops per gallon) of clear water (double dosage if water is cloudy). Mix thoroughly and let stand MANDATORY 30 minutes before drinking.",
+        "METHOD 3 (Water Purification Tablets - Aquatabs / Micropur): Follow manufacturer dosage and contact time (minimum 30 minutes for bacteria/viruses, up to 2 hours for hardy cysts).",
+        "METHOD 4 (Solar Disinfection SODIS): Fill clear clean PET plastic bottles and expose to direct sunlight for at least 6 hours (or 2 full days if overcast)."
+      ],
+      "warnings_en": [
+        "Boiling and chlorination do NOT remove toxic chemicals, heavy metals, pesticides, or fuel contaminants.",
+        "Never drink seawater or urine: high salinity causes acute kidney failure and accelerates fatal dehydration."
+      ],
+      "keywords_en": [
+        "water",
+        "purify",
+        "purification",
+        "potable",
+        "drinkable",
+        "boil",
+        "boiling",
+        "filter",
+        "bleach",
+        "disinfection",
+        "aquatabs",
+        "micropur",
+        "chlorine",
+        "sodis"
       ]
     },
     {
@@ -164,6 +276,34 @@
         "rechauffement",
         "refroidissement",
         "congelation"
+      ],
+      "title_en": "Hypothermia & Severe Cold Exposure",
+      "summary_en": "Dangerous drop in core body temperature below 35°C (95°F).",
+      "steps_en": [
+        "Immediately shelter the victim from wind, rain, and snow.",
+        "Insulate the victim from cold ground (sleeping pad, branches, backpacks, cardboard). The ground drains body heat 20 times faster than air.",
+        "Gently remove wet clothing and wrap the victim in dry layers and an emergency space blanket (shiny side inward or gold side outward).",
+        "Rewarm the CORE first (chest, armpits, groin, neck) using skin-to-skin body heat or warm bottles wrapped in cloth.",
+        "If victim is fully conscious and alert: give warm, sweet, non-caffeinated liquids (warm broth, sugar water).",
+        "Handle victim with EXTREME GENTLENESS: sudden rough movements can trigger fatal ventricular fibrillation (cardiac arrest)."
+      ],
+      "warnings_en": [
+        "NEVER give alcohol: it causes peripheral vasodilation and accelerates core heat loss.",
+        "NEVER rub, massage, or rapidly thaw frostbitten limbs (causes tissue death and cold acid return shock)."
+      ],
+      "keywords_en": [
+        "hypothermia",
+        "cold",
+        "frostbite",
+        "shivering",
+        "freeze",
+        "freezing",
+        "temperature",
+        "isothermal",
+        "blanket",
+        "rewarming",
+        "winter",
+        "exposure"
       ]
     },
     {
@@ -198,6 +338,36 @@
         "combustible",
         "ferrocerium",
         "braise"
+      ],
+      "title_en": "Emergency Fire Crafting",
+      "summary_en": "Building a reliable survival fire for heat, signaling, water boiling, and morale.",
+      "steps_en": [
+        "Prepare the hearth base: insulate from wet ground with a platform of dry bark or dead wooden limbs.",
+        "Gather 3 grades of fuel in generous quantities BEFORE attempting to spark:",
+        "  1. Ultra-dry tinder (petroleum jelly cotton, scraped birch bark, lint, feather sticks, dry frayed hemp rope).",
+        "  2. Kindling (pencil-lead thin twigs up to pencil-thick small sticks).",
+        "  3. Main fuel (thumb-thick to arm-thick dry hardwood branches and split logs).",
+        "Construct a tepee or lean-to structure over the tinder bundle, leaving a wind entrance for oxygen airflow.",
+        "Ignite with ferrocerium rod / fire striker: firmly scrape the striker down the rod directly into the tinder from close distance (5 cm / 2 in).",
+        "Once ember glows: blow with gentle, continuous breath, then feed progressively with small kindling without suffocating the flame."
+      ],
+      "warnings_en": [
+        "Never use wet river rocks or slate to surround the fire pit (trapped steam causes rocks to explode like shrapnel)."
+      ],
+      "keywords_en": [
+        "fire",
+        "kindling",
+        "tinder",
+        "ferrocerium",
+        "spark",
+        "flame",
+        "smoke",
+        "hearth",
+        "wood",
+        "campfire",
+        "matches",
+        "lighter",
+        "rain"
       ]
     },
     {
@@ -230,6 +400,34 @@
         "phlyctene",
         "refroidir",
         "bruler"
+      ],
+      "title_en": "Thermal & Chemical Burns",
+      "summary_en": "Immediate burn treatment to halt tissue destruction and prevent deep infection.",
+      "steps_en": [
+        "Cool IMMEDIATELY with cool/temperate running water (15-20°C / 59-68°F) for at least 15 to 20 minutes (do not use ice or ice-cold water).",
+        "Promptly remove rings, watches, tight jewelry, and loose clothing surrounding the area before swelling begins.",
+        "NEVER pull away or peel clothing that is melted or stuck to the burned flesh.",
+        "NEVER pop, puncture, or debride burn blisters: intact skin is the body's sterile barrier against fatal bacterial infection.",
+        "Cover the burn loosely with a clean, sterile dressing or clean plastic wrap (cling film) applied lengthwise without constriction.",
+        "Chemical burns: flush continuously with generous clean running water for at least 20 to 30 minutes."
+      ],
+      "warnings_en": [
+        "Do not apply butter, oil, toothpaste, ointments, or grease to a fresh burn.",
+        "Seek urgent emergency medical care if burn area is larger than victim's palm or involves face, hands, joints, or genitals."
+      ],
+      "keywords_en": [
+        "burn",
+        "burns",
+        "thermal",
+        "chemical",
+        "blister",
+        "scald",
+        "flame",
+        "cooling",
+        "dressing",
+        "skin",
+        "fire",
+        "hot"
       ]
     },
     {
@@ -264,6 +462,34 @@
         "abri",
         "atomique",
         "fallout"
+      ],
+      "title_en": "CBRN & Radiological Fallout Protection",
+      "summary_en": "Survival protocol in the event of radiological detonation, toxic chemical cloud, or nuclear incident.",
+      "steps_en": [
+        "Golden Rule: GET INSIDE, STAY INSIDE, STAY TUNED.",
+        "Seek shelter immediately in the center of a dense concrete or brick building or underground basement. Stay away from exterior walls and windows.",
+        "Immediately shut off all HVAC, ventilation, air conditioners, fans, and close chimney dampers. Seal doors and windows with plastic sheeting and duct tape.",
+        "If caught outside during plume/fallout: remove outer clothing carefully before entering, seal in airtight plastic bag (removes up to 90% of radioactive particles).",
+        "Take a gentle lukewarm shower with soap without scrubbing or scratching skin. Wash hair thoroughly with shampoo only (do NOT use conditioner, which binds radioactive isotopes).",
+        "Consume ONLY canned foods, sealed jars, and bottled beverages stored indoors. Thoroughly wipe down cans before opening.",
+        "Remain sheltered for at least 24 to 48 hours (radioactivity from fission products decreases 100-fold after 48 hours according to the 7/10 rule of thumb)."
+      ],
+      "warnings_en": [
+        "Do not take potassium iodide (KI) tablets unless explicitly ordered by public health officials (dangerous if misdosed or taken unnecessarily)."
+      ],
+      "keywords_en": [
+        "nuclear",
+        "radiation",
+        "fallout",
+        "cbrn",
+        "nbc",
+        "radiological",
+        "iodine",
+        "shelter",
+        "toxic",
+        "contamination",
+        "bomb",
+        "blast"
       ]
     }
   ]

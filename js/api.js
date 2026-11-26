@@ -6,7 +6,8 @@
  * 3. OpenAI-compatible Local Servers (Port 8080 - PocketPal AI / LocalAI)
  */
 
-import { WebGPUEngine, WEBGPU_MODELS } from './webgpu.js?v=3.3';
+import { WebGPUEngine, WEBGPU_MODELS } from './webgpu.js?v=3.4';
+import { getLanguage } from './i18n.js?v=3.4';
 
 export class LLMClient {
   constructor() {
@@ -25,13 +26,21 @@ export class LLMClient {
     this.temperature = parseFloat(localStorage.getItem('llm_temperature') || '0.6');
     this.topP = parseFloat(localStorage.getItem('llm_top_p') || '0.8');
     this.repetitionPenalty = parseFloat(localStorage.getItem('llm_repetition_penalty') || '1.1');
-    this.systemPrompt = localStorage.getItem('llm_system_prompt') || this.getDefaultSystemPrompt();
+    this.systemPrompt = localStorage.getItem('llm_system_prompt') || '';
 
     // WebGPU Engine instance
     this.webgpu = new WebGPUEngine();
   }
 
-  getDefaultSystemPrompt() {
+  getDefaultSystemPrompt(lang = getLanguage()) {
+    if (lang === 'en') {
+      return `You are Survival LLM, an expert assistant in hostile environment survival, tactical combat casualty care (TCCC), off-grid resilience, and disaster management.
+DIRECTIVES:
+1. Always respond in ENGLISH with a calm, clear, structured, and direct tone.
+2. For medical or life-threatening emergencies, provide immediate NUMBERED action steps (1, 2, 3), highlighting DANGERS and contraindications.
+3. If survival guide context is provided, adhere strictly to it.
+4. Remain concise, pragmatic, and easy to understand even under extreme stress.`;
+    }
     return `Tu es Survival LLM, un assistant expert en survie en milieu hostile, premiers secours tactiques (TCCC), autonomie et gestion des catastrophes naturelles ou technologiques.
 DIRECTIVES :
 1. Réponds toujours en FRANÇAIS, avec un ton calme, clair, structuré et direct.
@@ -40,7 +49,10 @@ DIRECTIVES :
 4. Reste concis, pragmatique et compréhensible même sous stress extrême.`;
   }
 
-  getWebGPUCompactSystemPrompt(modelId = '') {
+  getWebGPUCompactSystemPrompt(modelId = '', lang = getLanguage()) {
+    if (lang === 'en') {
+      return `You are Survival LLM, expert in survival and emergency tactical first aid. DIRECTIVES: Always respond strictly in ENGLISH, in a concise, direct, and structured manner with numbered action steps (1, 2, 3). Be precise, calm, and without unnecessary fluff.`;
+    }
     return `Tu es Survival LLM, expert en survie et premiers secours d'urgence. DIRECTIVES : Réponds exclusivement en FRANÇAIS, de manière concise, directe et structurée par étapes d'action numérotées (1, 2, 3). Sois précis, calme et sans verbiage inutile.`;
   }
 
@@ -182,12 +194,17 @@ DIRECTIVES :
   /**
    * Unified stream chat completion
    */
-  async streamChat(messages, onToken, signal, onLoadingProgress) {
+  async streamChat(messages, onToken, signal, onLoadingProgress, customLang) {
+    const lang = customLang || getLanguage();
+    const isCustomSysPrompt = this.systemPrompt && 
+      this.systemPrompt !== this.getDefaultSystemPrompt('fr') && 
+      this.systemPrompt !== this.getDefaultSystemPrompt('en');
+
     // 1. WebGPU Mode (Default) - uses compact system prompt for ultra-fast mobile GPU prefill
     if (this.engineMode === 'webgpu') {
-      const sysContent = (this.systemPrompt === this.getDefaultSystemPrompt())
-        ? this.getWebGPUCompactSystemPrompt(this.webgpu.currentModel)
-        : this.systemPrompt;
+      const sysContent = isCustomSysPrompt
+        ? this.systemPrompt
+        : this.getWebGPUCompactSystemPrompt(this.webgpu.currentModel, lang);
       const webgpuMessages = [
         { role: 'system', content: sysContent },
         ...messages
@@ -195,8 +212,12 @@ DIRECTIVES :
       return this.webgpu.streamChat(webgpuMessages, onToken, signal, onLoadingProgress);
     }
 
+    const sysContent = isCustomSysPrompt
+      ? this.systemPrompt
+      : this.getDefaultSystemPrompt(lang);
+
     const fullMessages = [
-      { role: 'system', content: this.systemPrompt },
+      { role: 'system', content: sysContent },
       ...messages
     ];
 
