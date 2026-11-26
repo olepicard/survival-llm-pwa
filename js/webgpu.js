@@ -1,10 +1,10 @@
 /**
- * WebGPU Local In-Browser LLM Engine v3.2 (Smart Hardware Profiler + Full Offline + Adreno Safe-Decode)
+ * WebGPU Local In-Browser LLM Engine v3.3 (Tuned Sampling Hyperparameters + Smart Hardware Profiler + Full Offline)
  * Automatically detects GPU/VRAM/RAM capabilities to select the optimal LLM model for the device,
  * downloads all WebGPU resources ONCE into permanent CacheStorage, and runs 100% offline.
  */
 
-const LOCAL_WEBLLM_URL = './vendor/web-llm.js?v=3.2';
+const LOCAL_WEBLLM_URL = './vendor/web-llm.js?v=3.3';
 
 export const WEBGPU_MODELS = [
   {
@@ -550,11 +550,58 @@ export class WebGPUEngine {
     await this._acquireWakeLock();
     try {
       const t0 = performance.now();
+      const modelId = this.currentModel || '';
+
+      // Modèle-spécifique : hyperparamètres de sampling optimisés pour éviter les répétitions et l'incohérence
+      let temperature = parseFloat(localStorage.getItem('llm_temperature') || '0.6');
+      let top_p = 0.80;
+      let repetition_penalty = 1.10;
+      let max_tokens = 512;
+      let stop = ["<|im_end|>", "<|endoftext|>"];
+
+      if (modelId.includes('SmolLM2')) {
+        top_p = 0.85;
+        repetition_penalty = 1.15;
+        max_tokens = 450;
+      } else if (modelId.includes('Qwen2.5')) {
+        // Paramètres recommandés MLC pour Qwen 2.5 0.5B Instruct :
+        // top_p: 0.80, repetition_penalty: 1.10, ChatML stops
+        top_p = 0.80;
+        repetition_penalty = 1.10;
+        max_tokens = 512;
+        stop = ["<|im_end|>", "<|endoftext|>", "user<|im_end|>", "assistant<|im_end|>"];
+      } else if (modelId.includes('Llama-3.2-1B')) {
+        top_p = 0.90;
+        repetition_penalty = 1.10;
+        max_tokens = 600;
+        stop = ["<|eot_id|>", "<|end_of_text|>"];
+      } else if (modelId.includes('Llama-3.2-3B')) {
+        top_p = 0.90;
+        repetition_penalty = 1.08;
+        max_tokens = 768;
+        stop = ["<|eot_id|>", "<|end_of_text|>"];
+      }
+
+      // Respecter les surcharges manuelles utilisateur si définies
+      const customTopP = parseFloat(localStorage.getItem('llm_top_p') || '');
+      if (!isNaN(customTopP) && customTopP > 0 && customTopP <= 1) {
+        top_p = customTopP;
+      }
+      const customRepPenalty = parseFloat(localStorage.getItem('llm_repetition_penalty') || '');
+      if (!isNaN(customRepPenalty) && customRepPenalty >= 1) {
+        repetition_penalty = customRepPenalty;
+      }
+
+      console.log(`[WebGPU v3.3] Inférence ${modelId} | temp=${temperature} | top_p=${top_p} | rep_penalty=${repetition_penalty} | max_tokens=${max_tokens}`);
+
       const stream = await this.engine.chat.completions.create({
         messages,
         stream: true,
-        temperature: parseFloat(localStorage.getItem('llm_temperature') || '0.7'),
-        max_tokens: 512
+        temperature,
+        top_p,
+        repetition_penalty,
+        max_tokens,
+        stop
       });
 
       let fullText = '';

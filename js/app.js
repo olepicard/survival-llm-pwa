@@ -4,13 +4,13 @@
  * WebGPU in-browser engine (default), and external Ollama / llama.cpp engines.
  */
 
-import { LLMClient } from './api.js?v=3.2';
-import { WEBGPU_MODELS } from './webgpu.js?v=3.2';
-import { GuidesDB } from './db.js?v=3.2';
-import { EmergencyManager } from './emergency.js?v=3.2';
-import { RAGEngine } from './rag.js?v=3.2';
-import { ArchitectureDetector } from './arch.js?v=3.2';
-import { renderMarkdown, escapeHtml } from './markdown.js?v=3.2';
+import { LLMClient } from './api.js?v=3.3';
+import { WEBGPU_MODELS } from './webgpu.js?v=3.3';
+import { GuidesDB } from './db.js?v=3.3';
+import { EmergencyManager } from './emergency.js?v=3.3';
+import { RAGEngine } from './rag.js?v=3.3';
+import { ArchitectureDetector } from './arch.js?v=3.3';
+import { renderMarkdown, escapeHtml } from './markdown.js?v=3.3';
 
 // In-Memory Circular Log Buffer for Mobile UI Debugging
 export const APP_LOGS = [];
@@ -792,8 +792,8 @@ class SurvivalApp {
     let ragResult = { contextText: '', sources: [] };
     if (forcedContext) {
       ragResult.contextText = isWebGPU
-        ? `\n[ Directives : ${forcedContext.slice(0, 350)} ]`
-        : `\n\n${forcedContext}\nConsigne : Appuie-toi sur ces directives.`;
+        ? `DIRECTIVES DE SURVIE ET SECOURS :\n${forcedContext.slice(0, 350)}\n\nQUESTION DE L'UTILISATEUR :\n${text}\n\nConsigne : Réponds exclusivement en français, de manière concise, directe et structurée par étapes d'action numérotées (1, 2, 3) en t'appuyant rigoureusement sur ces directives.`
+        : `--- DIRECTIVES TECHNIQUES DE SURVIE HORS-LIGNE ---\n${forcedContext}\n--- FIN DES DIRECTIVES ---\n\nQUESTION DE L'UTILISATEUR :\n${text}\n\nConsigne : Réponds en français de manière claire, structurée et immédiatement applicable (étapes numérotées 1, 2, 3).`;
       ragResult.sources = [{ title: 'Protocole SOS Direct', id: 0 }];
     } else if (this.rag.enabled) {
       try {
@@ -804,7 +804,7 @@ class SurvivalApp {
     }
 
     // Store final prompt in chatHistory so WebLLM multi-round KVCache prefix check matches on subsequent turns!
-    const fullUserPrompt = ragResult.contextText ? `${text}${ragResult.contextText}` : text;
+    const fullUserPrompt = ragResult.contextText ? ragResult.contextText : text;
     this.chatHistory.push({ role: 'user', content: fullUserPrompt });
 
     // 3. Create Assistant Message Element

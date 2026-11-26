@@ -80,7 +80,7 @@ export class GuidesDB {
   }
 
   /**
-   * Search guides by keyword and optional theme
+   * Search guides by keyword and optional theme with intelligent token scoring
    */
   async searchGuides(query = '', themeFilter = 'all', limit = 60) {
     const index = await this.loadIndex();
@@ -92,19 +92,81 @@ export class GuidesDB {
       results = results.filter(g => g.theme === themeFilter);
     }
 
-    if (query && query.trim()) {
-      const terms = this.normalize(query).split(/\s+/).filter(Boolean);
-      results = results.filter(g => {
-        const titleNorm = this.normalize(g.title);
-        const snipNorm = this.normalize(g.snippet || '');
-        const srcNorm = this.normalize(g.source_label || '');
-        return terms.every(term => 
-          titleNorm.includes(term) || snipNorm.includes(term) || srcNorm.includes(term)
-        );
-      });
+    if (!query || !query.trim()) {
+      return results.slice(0, limit);
     }
 
-    return results.slice(0, limit);
+    const STOP_WORDS = new Set([
+      'alors', 'au', 'aucuns', 'aussi', 'autre', 'avant', 'avec', 'avoir', 'bon', 'car',
+      'ce', 'cela', 'ces', 'ceux', 'chaque', 'ci', 'comme', 'comment', 'dans', 'des',
+      'du', 'dedans', 'dehors', 'depuis', 'devrait', 'doit', 'donc', 'dos', 'droite',
+      'debut', 'elle', 'elles', 'en', 'encore', 'essai', 'est', 'et', 'etaient', 'etat',
+      'ete', 'etiez', 'etions', 'etre', 'eu', 'fait', 'faites', 'fois', 'font', 'hors',
+      'ici', 'il', 'ils', 'je', 'juste', 'la', 'le', 'les', 'leur', 'leurs', 'lui',
+      'maintenant', 'mais', 'mes', 'mien', 'moins', 'mon', 'mot', 'meme', 'ni', 'nommes',
+      'notre', 'nous', 'nouveaux', 'ou', 'par', 'parce', 'parole', 'pas', 'personnes',
+      'peut', 'peu', 'piece', 'plupart', 'pour', 'pourquoi', 'quand', 'que', 'quel',
+      'quelle', 'quelles', 'quels', 'qui', 'sa', 'sans', 'ses', 'seulement', 'si',
+      'sien', 'son', 'sont', 'sous', 'soyez', 'sur', 'ta', 'tandis', 'tellement',
+      'tels', 'tes', 'ton', 'tous', 'tout', 'trop', 'tres', 'tu', 'voient', 'vont',
+      'votre', 'vous', 'vu', 'ca', 'faire', 'etapes', 'etape', 'quelles', 'sont', 'une', 'un',
+      'aux', 'dont', 'qu', 'd', 'l', 's', 'j', 'n', 'c', 'm', 't', 'y', 'moi', 'toi'
+    ]);
+
+    const normQuery = this.normalize(query);
+    let tokens = normQuery.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+    if (tokens.length === 0) {
+      tokens = normQuery.split(/\s+/).filter(w => w.length >= 2);
+    }
+
+    const scored = [];
+    for (const g of results) {
+      const titleNorm = this.normalize(g.title);
+      const snipNorm = this.normalize(g.snippet || '');
+      const srcNorm = this.normalize(g.source_label || '');
+
+      let score = 0;
+      let matchedCount = 0;
+
+      for (const t of tokens) {
+        const root = t.length >= 5 ? t.slice(0, 4) : t;
+        let matched = false;
+
+        if (titleNorm.includes(t)) {
+          score += 10;
+          matched = true;
+        } else if (titleNorm.includes(root)) {
+          score += 5;
+          matched = true;
+        }
+
+        if (snipNorm.includes(t)) {
+          score += 4;
+          matched = true;
+        } else if (snipNorm.includes(root)) {
+          score += 2;
+          matched = true;
+        }
+
+        if (srcNorm.includes(t)) {
+          score += 1;
+          matched = true;
+        }
+
+        if (matched) matchedCount++;
+      }
+
+      if (matchedCount === tokens.length && tokens.length > 1) {
+        score += 8; // Bonus si tous les mots-clés sont présents
+      }
+
+      if (score > 0) {
+        scored.push({ guide: g, score });
+      }
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, limit).map(item => item.guide);
   }
 
   /**
@@ -387,7 +449,8 @@ export class GuidesDB {
     return (str || '')
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w\s]/g, ' ');
   }
 
   _getFromStore(storeName, key) {

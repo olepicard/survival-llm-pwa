@@ -6,7 +6,7 @@
  * 3. OpenAI-compatible Local Servers (Port 8080 - PocketPal AI / LocalAI)
  */
 
-import { WebGPUEngine, WEBGPU_MODELS } from './webgpu.js?v=3.2';
+import { WebGPUEngine, WEBGPU_MODELS } from './webgpu.js?v=3.3';
 
 export class LLMClient {
   constructor() {
@@ -22,7 +22,9 @@ export class LLMClient {
     this.endpoint = localStorage.getItem('llm_endpoint') || 'http://127.0.0.1:11434';
     this.apiType = localStorage.getItem('llm_api_type') || 'ollama'; // 'ollama' | 'openai'
     this.model = localStorage.getItem('llm_model') || 'llama3.2:1b';
-    this.temperature = parseFloat(localStorage.getItem('llm_temperature') || '0.7');
+    this.temperature = parseFloat(localStorage.getItem('llm_temperature') || '0.6');
+    this.topP = parseFloat(localStorage.getItem('llm_top_p') || '0.8');
+    this.repetitionPenalty = parseFloat(localStorage.getItem('llm_repetition_penalty') || '1.1');
     this.systemPrompt = localStorage.getItem('llm_system_prompt') || this.getDefaultSystemPrompt();
 
     // WebGPU Engine instance
@@ -38,8 +40,8 @@ DIRECTIVES :
 4. Reste concis, pragmatique et compréhensible même sous stress extrême.`;
   }
 
-  getWebGPUCompactSystemPrompt() {
-    return `Tu es Survival LLM, expert en survie et premiers secours d'urgence. Réponds toujours en FRANÇAIS, de manière concise, pragmatique et structurée par étapes numérotées (1, 2, 3).`;
+  getWebGPUCompactSystemPrompt(modelId = '') {
+    return `Tu es Survival LLM, expert en survie et premiers secours d'urgence. DIRECTIVES : Réponds exclusivement en FRANÇAIS, de manière concise, directe et structurée par étapes d'action numérotées (1, 2, 3). Sois précis, calme et sans verbiage inutile.`;
   }
 
   saveSettings(settings) {
@@ -66,6 +68,14 @@ DIRECTIVES :
     if (settings.temperature !== undefined) {
       this.temperature = parseFloat(settings.temperature);
       localStorage.setItem('llm_temperature', this.temperature.toString());
+    }
+    if (settings.topP !== undefined) {
+      this.topP = parseFloat(settings.topP);
+      localStorage.setItem('llm_top_p', this.topP.toString());
+    }
+    if (settings.repetitionPenalty !== undefined) {
+      this.repetitionPenalty = parseFloat(settings.repetitionPenalty);
+      localStorage.setItem('llm_repetition_penalty', this.repetitionPenalty.toString());
     }
     if (settings.systemPrompt !== undefined) {
       this.systemPrompt = settings.systemPrompt;
@@ -176,7 +186,7 @@ DIRECTIVES :
     // 1. WebGPU Mode (Default) - uses compact system prompt for ultra-fast mobile GPU prefill
     if (this.engineMode === 'webgpu') {
       const sysContent = (this.systemPrompt === this.getDefaultSystemPrompt())
-        ? this.getWebGPUCompactSystemPrompt()
+        ? this.getWebGPUCompactSystemPrompt(this.webgpu.currentModel)
         : this.systemPrompt;
       const webgpuMessages = [
         { role: 'system', content: sysContent },

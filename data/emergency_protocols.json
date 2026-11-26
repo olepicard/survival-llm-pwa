@@ -18,6 +18,18 @@
       "warnings": [
         "Un garrot mal serré majore le saignement veineux sans arrêter le flux artériel.",
         "La douleur est normale et intense : ne pas desserrer pour autant."
+      ],
+      "keywords": [
+        "garrot",
+        "tourniquet",
+        "hemorragie",
+        "saignement",
+        "artere",
+        "sang",
+        "cat",
+        "membre",
+        "amputation",
+        "cabestan"
       ]
     },
     {
@@ -39,6 +51,20 @@
       "warnings": [
         "Ne pas interrompre les compressions plus de 5 secondes.",
         "Chaque minute sans massage réduit la survie de 10%."
+      ],
+      "keywords": [
+        "cpr",
+        "rcr",
+        "cardiaque",
+        "reanimation",
+        "massage",
+        "defibrillateur",
+        "dae",
+        "inconscient",
+        "inconscience",
+        "respiration",
+        "arret",
+        "pouls"
       ]
     },
     {
@@ -58,6 +84,19 @@
       ],
       "warnings": [
         "Femme enceinte ou personne obèse : remplacer les compressions abdominales par des compressions thoraciques (au milieu du sternum)."
+      ],
+      "keywords": [
+        "etouffement",
+        "heimlich",
+        "suffocation",
+        "fausse",
+        "route",
+        "obstruer",
+        "voies",
+        "aeriennes",
+        "claques",
+        "asphyxie",
+        "etouffer"
       ]
     },
     {
@@ -76,6 +115,22 @@
       "warnings": [
         "L'ébullition et le chlore ne retirent PAS les polluants chimiques, métaux lourds ou hydrocarbures.",
         "Ne jamais boire d'eau de mer ou d'urine : cela aggrave l'insuffisance rénale et la déshydratation."
+      ],
+      "keywords": [
+        "eau",
+        "purifier",
+        "purification",
+        "potable",
+        "ebullition",
+        "filtre",
+        "chloration",
+        "javel",
+        "micropur",
+        "charbon",
+        "desinfection",
+        "aquatabs",
+        "bouillir",
+        "boire"
       ]
     },
     {
@@ -95,6 +150,20 @@
       "warnings": [
         "JAMAIS d'alcool : vasodilatateur qui accélère le refroidissement interne.",
         "JAMAIS frictionner ou masser les membres gelés (risque de gangrène et de collapsus de retour veineux froid)."
+      ],
+      "keywords": [
+        "hypothermie",
+        "froid",
+        "gelure",
+        "frisson",
+        "frissons",
+        "engourdissement",
+        "temperature",
+        "isotherme",
+        "couverture",
+        "rechauffement",
+        "refroidissement",
+        "congelation"
       ]
     },
     {
@@ -115,6 +184,20 @@
       ],
       "warnings": [
         "Ne pas utiliser de pierres de rivière poreuses ou humides pour entourer le foyer (elles peuvent exploser sous la vapeur d'eau)."
+      ],
+      "keywords": [
+        "feu",
+        "allumer",
+        "flamme",
+        "briquet",
+        "friction",
+        "amadou",
+        "etincelle",
+        "pluie",
+        "foyer",
+        "combustible",
+        "ferrocerium",
+        "braise"
       ]
     },
     {
@@ -134,6 +217,19 @@
       "warnings": [
         "Ne pas appliquer de beurre, graisse, dentifrice ou huile sur une brûlure.",
         "Si surface brûlée > paume de la main ou chez un enfant : appel médical d'urgence immédiat."
+      ],
+      "keywords": [
+        "brulure",
+        "brulures",
+        "cloque",
+        "cloques",
+        "thermique",
+        "chimique",
+        "echaudure",
+        "flamme",
+        "phlyctene",
+        "refroidir",
+        "bruler"
       ]
     },
     {
@@ -153,6 +249,21 @@
       ],
       "warnings": [
         "Ne pas prendre d'iode stable (iodure de potassium) sans ordre explicite des autorités sanitaires (dangereux si mal dosé)."
+      ],
+      "keywords": [
+        "nucleaire",
+        "cbrn",
+        "nbc",
+        "radiations",
+        "iode",
+        "retombees",
+        "chimique",
+        "biologique",
+        "toxique",
+        "gaz",
+        "abri",
+        "atomique",
+        "fallout"
       ]
     }
   ]
